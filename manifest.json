@@ -1,0 +1,13 @@
+{
+  "name": "Libum",
+  "short_name": "Libum",
+  "description": "一个温柔的陪伴小站",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#a58cf0",
+  "theme_color": "#a58cf0",
+  "icons": []
+}
