@@ -12,23 +12,28 @@ self.addEventListener('activate', (e) => {
 });
 
 // ------------------------------------------------------------
-// 主线程要求展示通知
+// 主线程消息：展示通知 / 检查未读
 // ------------------------------------------------------------
 self.addEventListener('message', (event) => {
   const d = event.data || {};
+
+  // 展示通知（核心通道，支持 vibrate / renotify / data）
   if (d.type === 'SHOW_NOTIFICATION') {
-    self.registration.showNotification(d.title || 'Libum', {
-      body: d.body || '',
-      icon: d.icon,
-      badge: d.badge,
-      tag: d.tag || 'libum-msg',
-      renotify: true,
-      requireInteraction: !!d.requireInteraction,
-      silent: !!d.silent,
-      vibrate: d.vibrate || [80, 40, 80],
-      data: d.data || {}
-    });
+    event.waitUntil(
+      self.registration.showNotification(d.title || 'Libum', {
+        body: d.body || '',
+        icon: d.icon || undefined,
+        badge: d.badge || undefined,
+        tag: d.tag || 'libum-msg',
+        renotify: !!d.renotify,
+        requireInteraction: !!d.requireInteraction,
+        silent: !!d.silent,
+        vibrate: Array.isArray(d.vibrate) ? d.vibrate : [80, 40, 80],
+        data: d.data || {}
+      }).catch(err => console.warn('[SW] showNotification failed:', err))
+    );
   }
+
   // 主线程要求检查未读（切后台时调用）
   if (d.type === 'CHECK_UNREAD') {
     event.waitUntil(checkUnreadAndNotify());

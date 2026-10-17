@@ -428,6 +428,171 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 
 html.kb-open .chat-inputbar{ padding-bottom: 9px !important; }
 html.kb-open .tabbar{ padding-bottom: 8px !important; }
+
+/* ============ 陪伴主页 ============ */
+.companion-list { display: flex; flex-direction: column; gap: 12px; }
+.companion-card { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 20px; background: rgba(255,255,255,.14); backdrop-filter: blur(var(--blur)) saturate(170%); -webkit-backdrop-filter: blur(var(--blur)) saturate(170%); border: 1px solid rgba(255,255,255,.26); transition: transform .18s, background .18s; cursor: pointer; }
+.companion-card:active { transform: scale(.985); background: rgba(255,255,255,.22); }
+.companion-icon { width: 52px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #fff; flex: none; box-shadow: 0 6px 16px rgba(50,35,100,.15); }
+.companion-icon svg { width: 26px; height: 26px; }
+.companion-info { flex: 1; min-width: 0; }
+.companion-name { font-size: 15px; font-weight: 600; color: #fff; }
+.companion-desc { font-size: 11.5px; color: rgba(255,255,255,.65); margin-top: 4px; line-height: 1.4; }
+
+/* ============ 一起看 ============ */
+.watch-hero { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px 24px;border-radius:24px;background:rgba(255,255,255,.13);backdrop-filter:blur(var(--blur)) saturate(170%);-webkit-backdrop-filter:blur(var(--blur)) saturate(170%);border:1px solid rgba(255,255,255,.26);margin-bottom:16px;text-align:center; }
+.watch-hero-icon { width:64px;height:64px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7f8ff5,#e29ad8);color:#fff;box-shadow:0 12px 30px rgba(127,143,245,.4); }
+.watch-hero-icon svg { width:30px;height:30px; }
+.watch-hero-title { font-size:15px;font-weight:600;letter-spacing:.02em; }
+.watch-hero-desc { font-size:12px;line-height:1.7;color:rgba(255,255,255,.7); }
+.watch-hero-btn { margin-top:6px;padding:10px 22px;border-radius:16px;font-size:13px;font-weight:600;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.4);color:#fff;display:flex;align-items:center;gap:6px; }
+.watch-hero-btn:active { transform:scale(.96);background:rgba(255,255,255,.4); }
+.watch-hero-btn svg { width:16px;height:16px; }
+
+.watch-active-card { position:relative;padding:16px;border-radius:22px;background:rgba(255,255,255,.16);backdrop-filter:blur(var(--blur)) saturate(180%);-webkit-backdrop-filter:blur(var(--blur)) saturate(180%);border:1px solid rgba(255,255,255,.32);margin-bottom:16px;overflow:hidden;cursor:pointer; }
+.watch-active-glow { position:absolute;top:-40%;right:-30%;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(226,154,216,.55),transparent 70%);animation:floatBg 8s ease-in-out infinite alternate; }
+.watch-active-inner { position:relative;z-index:1;display:flex;align-items:center;gap:14px; }
+.watch-active-cover { width:64px;height:64px;border-radius:16px;background:rgba(0,0,0,.25) center/cover;display:flex;align-items:center;justify-content:center;flex:none;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.25); }
+.watch-active-cover svg { width:26px;height:26px; }
+.watch-active-info { flex:1;min-width:0; }
+.watch-active-tag { font-size:10.5px;letter-spacing:.1em;color:#7dfcb4;font-weight:600;margin-bottom:5px; }
+.watch-active-title { font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.watch-active-sub { font-size:11px;color:rgba(255,255,255,.65);margin-top:4px; }
+
+.watch-hist-cover { width:48px;height:48px;border-radius:13px;background:rgba(255,255,255,.16) center/cover;display:flex;align-items:center;justify-content:center;flex:none;color:rgba(255,255,255,.6); }
+.watch-hist-cover svg { width:20px;height:20px; }
+
+.watch-room-page { background:rgba(20,16,40,.85) !important; }
+.watch-room-page .subhead { position:relative; }
+.watch-player { flex:none;width:100%;aspect-ratio:16/9;background:#000;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center; }
+/* 竖屏容器（抖音） */
+.watch-player.vertical { aspect-ratio:auto;height:58vh;max-height:58vh;width:100%; }
+.watch-player.vertical .watch-iframe,
+.watch-player.vertical .watch-iframe-wrap { flex:0 0 auto;height:100%;width:auto;max-width:100%;aspect-ratio:9/16; }
+.watch-iframe { width:100%;height:100%;border:0;display:block; }
+.watch-iframe-wrap { width:100%;height:100%;position:relative; }
+/* 自定义全屏按钮 */
+.watch-player .watch-fs-btn { position:absolute;top:10px;right:10px;z-index:12;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,.55);color:#fff;cursor:pointer;touch-action:manipulation;transition:transform .18s,background .18s;box-shadow:0 4px 14px rgba(0,0,0,.35); }
+.watch-player .watch-fs-btn:hover { background:rgba(0,0,0,.85); }
+.watch-player .watch-fs-btn:active { transform:scale(.9);background:rgba(0,0,0,.9); }
+.watch-player .watch-fs-btn svg { width:20px;height:20px; }
+/* 全屏状态 */
+.watch-player:fullscreen,
+.watch-player:-webkit-full-screen {
+  width:100vw !important;height:100vh !important;max-height:100vh !important;
+  aspect-ratio:auto !important;background:#000;
+  display:flex !important;align-items:center !important;justify-content:center !important;
+}
+.watch-player:fullscreen > *,
+.watch-player:-webkit-full-screen > * {
+  max-width:100% !important;max-height:100% !important;
+}
+.watch-player:fullscreen .watch-iframe,
+.watch-player:fullscreen .watch-iframe-wrap,
+.watch-player:fullscreen > div,
+.watch-player:fullscreen > video,
+.watch-player:fullscreen > iframe,
+.watch-player:-webkit-full-screen .watch-iframe,
+.watch-player:-webkit-full-screen .watch-iframe-wrap,
+.watch-player:-webkit-full-screen > div,
+.watch-player:-webkit-full-screen > video,
+.watch-player:-webkit-full-screen > iframe {
+  width:100% !important;height:100% !important;max-width:none !important;max-height:none !important;
+  aspect-ratio:auto !important;flex:1 1 auto !important;
+}
+/* 竖屏（抖音）进入全屏后强制 9:16 居中 */
+.watch-player.vertical:fullscreen,
+.watch-player.vertical:-webkit-full-screen { background:#000 !important; }
+.watch-player.vertical:fullscreen .watch-iframe-wrap,
+.watch-player.vertical:-webkit-full-screen .watch-iframe-wrap {
+  width:auto !important;height:100% !important;
+  aspect-ratio:9/16 !important;
+  flex:0 1 auto !important;
+}
+
+/* ============ 模拟全屏 (针对禁用原生全屏的浏览器) ============ */
+.watch-player.fake-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  z-index: 99999 !important; /* 置顶覆盖一切 */
+  background: #000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  aspect-ratio: auto !important;
+}
+.watch-player.fake-fullscreen > * {
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+.watch-player.fake-fullscreen .watch-iframe,
+.watch-player.fake-fullscreen .watch-iframe-wrap,
+.watch-player.fake-fullscreen > div,
+.watch-player.fake-fullscreen > video,
+.watch-player.fake-fullscreen > iframe {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  flex: 1 1 auto !important;
+}
+/* 竖屏（抖音）模拟全屏 */
+.watch-player.vertical.fake-fullscreen .watch-iframe-wrap {
+  width: auto !important;
+  height: 100% !important;
+  aspect-ratio: 9/16 !important;
+  flex: 0 1 auto !important;
+}
+
+/* ============ CSS 强制横屏（旋转 90 度） ============ */
+.watch-player.fake-fullscreen.landscape-fs {
+  width: 100vh !important;
+  height: 100vw !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) rotate(90deg) !important;
+  transform-origin: center center !important;
+  border-radius: 0 !important;
+}
+/* 强制横屏后，内部的视频/iframe填满旋转后的区域 */
+.watch-player.fake-fullscreen.landscape-fs .watch-iframe,
+.watch-player.fake-fullscreen.landscape-fs .watch-iframe-wrap,
+.watch-player.fake-fullscreen.landscape-fs > div,
+.watch-player.fake-fullscreen.landscape-fs > video {
+  width: 100% !important;
+  height: 100% !important;
+}
+/* 强制横屏后，退出按钮也要转回来，保证能点到 */
+.watch-player.fake-fullscreen.landscape-fs .watch-fs-btn {
+  top: 20px !important;
+  right: 20px !important;
+  transform: rotate(-90deg) !important;
+}
+
+.watch-fallback { width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(160deg,rgba(60,40,100,.9),rgba(30,20,60,.9));padding:20px;text-align:center; }
+.watch-fallback-icon { width:54px;height:54px;border-radius:18px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;color:#fff; }
+.watch-fallback-icon svg { width:26px;height:26px; }
+.watch-fallback-title { font-size:14px;font-weight:600;color:#fff; }
+.watch-fallback-desc { font-size:11.5px;color:rgba(255,255,255,.65);line-height:1.6; }
+.watch-fallback-btn { margin-top:6px;padding:9px 20px;border-radius:14px;font-size:12.5px;font-weight:600;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.4);color:#fff;display:flex;align-items:center;gap:6px;text-decoration:none; }
+.watch-fallback-btn svg { width:15px;height:15px; }
+
+.watch-meta { padding:12px 16px 6px; }
+.watch-meta-title { font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff; }
+.watch-meta-sub { font-size:11px;color:rgba(255,255,255,.6);margin-top:4px; }
+
+.watch-chat { flex:1;overflow-y:auto;padding:8px 14px 12px;display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.15); }
+.watch-chat::-webkit-scrollbar { width:0; }
+.watch-msg { align-items:flex-end; }
+.watch-bubble { max-width:70%;padding:8px 13px;font-size:13px;line-height:1.5;border-radius:14px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);color:#fff;word-break:break-word;animation:pop .2s cubic-bezier(.2,1.2,.4,1); }
+.watch-bubble.me { background:rgba(226,154,216,.5);border-color:rgba(255,255,255,.35); }
+
+.watch-inputbar { flex:none;display:flex;align-items:center;gap:9px;padding:9px 12px calc(9px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.25); }
 </style></head><body>
 <div class="app" id="app">
   <header class="system-bar" id="systemBar">
@@ -496,8 +661,6 @@ window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; })
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(() => {
     console.log('Service Worker 注册成功');
-    
-    // ⭐ 增加周期性后台同步，让支持该特性的安卓浏览器能后台唤醒检查未读
     if ('PeriodicSyncManager' in window) {
       navigator.serviceWorker.ready.then(async (registration) => {
         try {
@@ -539,30 +702,11 @@ const UPDATE_LOG = {
       '🎛️ 朋友圈内容设置新增「拼接条数」和「回复条数」范围自定义，不再固定 1~2 条',
       '🎵 修复网易云歌单导入后无法播放（提示会员歌曲）的问题，统一使用外链',
       '🖼️ 修复退出再进后图片、美化、头像等资源全部丢失的严重问题',
-      '📡 修复切回前台时才发消息的问题，现在切回会立即结算后台延迟消息'
-    ]
-  },
-  '2.1.6': {
-    date: '2026-10-17',
-    items: [
-      '🔗 修复网易云歌单短链接（163cn.tv）无法导入的问题，现在支持粘贴带中文的分享链接',
-      '🎛️ 个人主页新增「朋友圈内容」设置：可单独开关多字卡拼接发布、多字卡回复评论、带表情包发朋友圈'
-    ]
-  },
-  '2.1.5': {
-    date: '2026-10-17',
-    items: [
-      '💬 朋友圈支持多字卡拼接发布与配图（对方发动态更丰富了）',
-      '🔍 优化网易云歌单链接解析，现在能精准识别带中文的分享链接',
-      '🎨 调整聊天室表情包选择面板尺寸，展示更大更清晰'
-    ]
-  },
-  '2.1.4': {
-    date: '2026-10-16',
-    items: [
-      '📞 来电频率改为百分比控制，0~100% 自由调节，更直观',
-      '👀 访客频率改为百分比控制，0~100% 自由调节',
-      '🎨 聊天设置中新增「清除自定义 CSS」按钮，一键恢复默认样式'
+      '📡 修复切回前台时才发消息的问题，现在切回会立即结算后台延迟消息',
+      '🎬 一起看新增全屏按钮，视频容器支持自适应（抖音竖屏 / B站横屏），并增加全屏失败模拟兜底',
+      '📱 修复浏览器拦截全屏的问题，利用 CSS 强制横屏技术，竖着拿手机也能获得完美的横屏视觉体验',
+      '🔔 通知链路重构：SW 双通道发送 + 队列错峰 + 权限主动请求，系统提醒不再丢',
+      '🔋 后台保活增强：Worker 每 4s 结算定时器 + 切后台主动 CHECK_UNREAD + 90s 兜底心跳'
     ]
   }
 };
@@ -614,7 +758,9 @@ const ICONS={
   shuffle:svg('<path d="M16 3.5h4.5V8"/><path d="M3.5 20.5 21 3"/><path d="M21 16v4.5h-4.5"/><path d="m15 15 6 6"/><path d="m3.5 3.5 5 5"/>'),
   orderPlay:svg('<path d="M4 6h11"/><path d="M4 12h11"/><path d="M4 18h8"/><path d="m17 15 4 3-4 3"/>'),
   login:svg('<path d="M14 8.5V6.2a1.7 1.7 0 0 0-1.7-1.7H6.2A1.7 1.7 0 0 0 4.5 6.2v11.6a1.7 1.7 0 0 0 1.7 1.7h6.1a1.7 1.7 0 0 0 1.7-1.7v-2.3"/><path d="M10 12h10"/><path d="m17 9 3 3-3 3"/>'),
-  download:svg('<path d="M12 3.5v11"/><path d="m7.5 10 4.5 4.5L16.5 10"/><path d="M4.5 19.5h15"/>')
+  download:svg('<path d="M12 3.5v11"/><path d="m7.5 10 4.5 4.5L16.5 10"/><path d="M4.5 19.5h15"/>'),
+  fullscreen:svg('<path d="M4 9V5.4A1.4 1.4 0 0 1 5.4 4H9"/><path d="M20 9V5.4A1.4 1.4 0 0 0 18.6 4H15"/><path d="M4 15v3.6A1.4 1.4 0 0 0 5.4 20H9"/><path d="M20 15v3.6a1.4 1.4 0 0 1-1.4 1.4H15"/>',1.9),
+  fullscreenExit:svg('<path d="M9 4v4.4A1.6 1.6 0 0 1 7.4 10H4"/><path d="M15 4v4.4A1.6 1.6 0 0 0 16.6 10H20"/><path d="M9 20v-4.4A1.6 1.6 0 0 0 7.4 14H4"/><path d="M15 20v-4.4A1.6 1.6 0 0 1 16.6 14H20"/>',1.9)
 };
 
 const THEMES={
@@ -640,6 +786,13 @@ const DEFAULT_STATE={
     quiz:['我想你了。','今天也要好好吃饭。','记得早点休息。'],
     emoji:['(^_^)','(￣▽￣)','(*^_^*)','(T_T)'],
     sticker:[]
+  },
+  watchTogether: {
+    rooms: [],
+    activeRoom: null,
+    watchCards: ['这个好好笑哈哈','哇这个好美','快看这里！','我也有同感','这段太感人了','你看你看～'],
+    watchRate: 50,
+    nextWatchTime: null
   },
   settings:{
     theme:'aurora',blur:24,annivBlur:20,globalWallpaper:'',wallpaperDim:0,
@@ -673,9 +826,6 @@ function deepMerge(base,extra){
 }
 function clone(o){return JSON.parse(JSON.stringify(o));}
 
-/* ============================================================
-   ⭐ 存储层：资源分离 + IndexedDB 主存储
-   ============================================================ */
 const ASSET_REF = '@@asset:';
 
 function packAssets(obj){
@@ -779,8 +929,6 @@ function normalizeState(){
     S.settings.callRate = Math.max(0, Math.min(100, cr));
   }
   if(!Array.isArray(S.settings.playHistory)) S.settings.playHistory = [];
-  if(S.settings.mjIncomingCall !== undefined) delete S.settings.mjIncomingCall;
-  if(S.settings.netease !== undefined) delete S.settings.netease;
   if(S.settings.mjMomentCombine === undefined) S.settings.mjMomentCombine = true;
   if(S.settings.mjMomentCombineMin == null) S.settings.mjMomentCombineMin = 2;
   if(S.settings.mjMomentCombineMax == null) S.settings.mjMomentCombineMax = 3;
@@ -788,6 +936,12 @@ function normalizeState(){
   if(S.settings.mjMomentReplyMin == null) S.settings.mjMomentReplyMin = 1;
   if(S.settings.mjMomentReplyMax == null) S.settings.mjMomentReplyMax = 2;
   if(S.settings.mjMomentWithSticker === undefined) S.settings.mjMomentWithSticker = true;
+  if (!S.watchTogether) S.watchTogether = clone(DEFAULT_STATE.watchTogether);
+  if (!Array.isArray(S.watchTogether.rooms)) S.watchTogether.rooms = [];
+  if (!Array.isArray(S.watchTogether.watchCards) || !S.watchTogether.watchCards.length)
+    S.watchTogether.watchCards = clone(DEFAULT_STATE.watchTogether.watchCards);
+  if (S.watchTogether.watchRate == null) S.watchTogether.watchRate = 50;
+  if (S.watchTogether.activeRoom === undefined) S.watchTogether.activeRoom = null;
 }
 
 (function loadSync(){
@@ -897,10 +1051,8 @@ function doSave(){
     idbSet('libum_data', full);
   } catch(e){ console.warn('IDB 写入失败', e); }
 
-  // ⭐ 修复：只用 localStorage 记录最后一次保存时间，防止旧数据冲突，图片数据完全依赖 IDB
   try {
     localStorage.setItem('libum_last_saved', S.__savedAt.toString());
-    // 移除旧的占空间完整数据，避免 localStorage 爆满
     if (localStorage.getItem('libum_data')) {
       localStorage.removeItem('libum_data');
     }
@@ -980,6 +1132,7 @@ function startKeepAliveWorker(){
     const blob = new Blob([code], { type: 'application/javascript' });
     keepAliveWorkerUrl = URL.createObjectURL(blob);
     keepAliveWorker = new Worker(keepAliveWorkerUrl);
+    // 关键修复：Worker 每 4s tick 时直接结算定时器，避免 setInterval 被节流
     keepAliveWorker.onmessage = function(e){
       if(!S.settings.keepAlive) return;
       if(e.data && e.data.type === 'tick'){
@@ -991,7 +1144,7 @@ function startKeepAliveWorker(){
             try{ keepAliveCtx.resume(); }catch(err){}
           }
           if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-          if(Date.now() % 12000 < 4200){ try{ runTimersNow(); }catch(err){} }
+          runTimersNow();
         }catch(err){}
       }
     };
@@ -1049,7 +1202,8 @@ function startKeepAliveAudio(){
     if(!keepAliveAudio){
       keepAliveAudio = new Audio(url);
       keepAliveAudio.loop = true;
-      keepAliveAudio.volume = 0.01;
+      // 关键修复：0.01 容易被浏览器判定静音，降到 0.001 并配合 Worker 每 4s 重播
+      keepAliveAudio.volume = 0.001;
       keepAliveAudio.setAttribute('playsinline', '');
       keepAliveAudio.addEventListener('ended', () => {
         if(S.settings.keepAlive){ keepAliveAudio.play().catch(() => {}); }
@@ -1135,7 +1289,6 @@ document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){
     if(S.settings.keepAlive) requestWakeLock();
     updateBadges();
-    // ⭐ 修复：切回前台时立即强制结算所有定时器，补发后台错过的消息
     try { if(typeof checkAllTimers === 'function') checkAllTimers(); } catch(e){}
     if(stack[stack.length-1] && stack[stack.length-1].name === 'chatRoom') refreshChat();
   } else {
@@ -1143,6 +1296,12 @@ document.addEventListener('visibilitychange', () => {
       startKeepAliveAudio();
       setupMediaSession();
       startKeepAliveWorker();
+      // 关键修复：切后台时立刻让 SW 检查一次未读
+      try{
+        navigator.serviceWorker.ready.then(reg => {
+          if(reg.active) reg.active.postMessage({ type: 'CHECK_UNREAD' });
+        }).catch(()=>{});
+      }catch(e){}
     }
     save(true);
   }
@@ -1155,36 +1314,73 @@ async function requestNotificationPermission(){
   try{ const p = await Notification.requestPermission(); return p === 'granted'; }catch(e){ return false; }
 }
 
+/* ============ 通知队列 + 双通道发送（核心修复） ============ */
+let notifQueue = [];
+let notifBusy = false;
+
+function enqueueNotification(title, body, tag, data){
+  notifQueue.push({title, body, tag, data});
+  if(notifBusy) return;
+  notifBusy = true;
+  const drain = () => {
+    if(!notifQueue.length){ notifBusy = false; return; }
+    const item = notifQueue.shift();
+    sendSystemNotification(item.title, item.body, false, item.tag, item.data);
+    setTimeout(drain, 320); // 320ms 错峰，避免系统合并
+  };
+  drain();
+}
+
 async function sendSystemNotification(title, body, force, tag, data){
   if(!force && !S.settings.pushEnabled) return;
   if(!('Notification' in window)) return;
-  if(Notification.permission !== 'granted') return;
 
-  const opts = {
+  if(Notification.permission !== 'granted'){
+    if(force){
+      const ok = await requestNotificationPermission();
+      if(!ok) return;
+    } else {
+      return;
+    }
+  }
+
+  const payload = {
+    type: 'SHOW_NOTIFICATION',
+    title: title || 'Libum',
     body: body || '',
     icon: NOTIF_ICON,
     badge: NOTIF_ICON,
     tag: tag || 'libum-msg',
     renotify: true,
+    requireInteraction: false,
     silent: false,
+    vibrate: [80, 40, 80],
     data: data || {}
   };
 
+  // 优先 SW：postMessage + showNotification 双通道
   if('serviceWorker' in navigator){
     try{
       const reg = await Promise.race([
         navigator.serviceWorker.ready,
-        new Promise(res => setTimeout(() => res(null), 1500))
+        new Promise(res => setTimeout(() => res(null), 2500))
       ]);
-      if(reg && reg.showNotification){
-        await reg.showNotification(title, opts);
+      if(reg && reg.active){
+        try { reg.active.postMessage(payload); } catch(e){}
+        try { await reg.showNotification(payload.title, payload); } catch(e){}
         return;
       }
-    }catch(e){ /* 降级 */ }
+    }catch(e){}
   }
 
+  // 回退 new Notification（保留 icon/tag/data）
   try{
-    const n = new Notification(title, opts);
+    const n = new Notification(title, {
+      body: payload.body,
+      icon: payload.icon,
+      tag: payload.tag,
+      data: payload.data
+    });
     n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
     setTimeout(() => { try{ n.close(); }catch(e){} }, 8000);
   }catch(e){ console.warn('通知发送失败:', e); }
@@ -1408,8 +1604,16 @@ function updateBadges() {
   if (deskApps.length >= 4) {
     const hasChatUnread = Object.values(S.unread.chats).some(n => n > 0);
     deskApps[0].querySelector('.badge-dot').classList.toggle('show', hasChatUnread);
-    deskApps[2].querySelector('.badge-dot').classList.toggle('show', S.unread.letters > 0);
+    deskApps[3].querySelector('.badge-dot').classList.toggle('show', S.unread.letters > 0);
   }
+  // 应用角标（Chrome/Edge PWA）
+  try{
+    if('setAppBadge' in navigator){
+      const total = Object.values(S.unread.chats || {}).reduce((a,b)=>a+(b||0),0) + (S.unread.moments||0) + (S.unread.letters||0);
+      if(total > 0) navigator.setAppBadge(total).catch(()=>{});
+      else if('clearAppBadge' in navigator) navigator.clearAppBadge().catch(()=>{});
+    }
+  }catch(e){}
 }
 
 function render(){
@@ -1451,6 +1655,9 @@ function render(){
   applySettings();
   if(cur.name==='home')sizeDesk();
   if(cur.name==='listen')bindListen();
+  if(cur.name==='watchRoom'){
+    setTimeout(()=>{ const el = $('#watchChat'); if(el) el.scrollTop = el.scrollHeight; updateWatchFsBtn(); }, 60);
+  }
   if(cur.name==='moments'&&S.contacts.length&&Math.random()<0.5)addVisitor();
   if(savedScroll > 0){ const newScroll = document.querySelector('.page-scroll'); if(newScroll) newScroll.scrollTop = savedScroll; }
   lastScrollKey = newKey;
@@ -1835,15 +2042,15 @@ function viewHome(){
   const apps=[
     {id:'chatList',label:'聊天',icon:'chat', hasBadge: Object.values(S.unread.chats).some(n => n > 0)},
     {id:'listen',label:'一起听',icon:'music', hasBadge: false},
-    {id:'mail',label:'信箱',icon:'mail', hasBadge: S.unread.letters > 0},
-    {id:'profile',label:'陪伴',icon:'heart', hasBadge: false, comingSoon: true}
+    {id:'companionHome',label:'陪伴',icon:'heart', hasBadge: false},
+    {id:'mail',label:'信箱',icon:'mail', hasBadge: S.unread.letters > 0}
   ];
   let days=a.days||0;
   if(a.date){ const diff=Date.now()-new Date(a.date).getTime(); days=Math.max(0,Math.floor(diff/86400000)); }
   return `<div class="page"><div class="page-scroll" style="padding:10px 16px 30px"><div class="desk-grid" id="deskGrid">
     <div class="postcard ${hasCover ? 'has-cover' : ''}"><div class="postcard-bg" style="${hasCover?`background-image:url('${u.cover}')`:''}"></div><button class="postcard-cam" onclick="changeCover()">${ICONS.image}</button><div class="postcard-inner"><img class="postcard-avatar" src="${avatarSrc(u.avatar,u.name)}" onclick="changePostcardAvatar()"><div class="postcard-name" onclick="editNickname()">${esc(u.name||'我')}</div><div class="postcard-sign" onclick="editSign()">${esc(u.sign||'点击写下你的签名')}</div></div></div>
     <div class="polaroid" onclick="togglePolaroid()"><div class="polaroid-inner"><div class="polaroid-back"></div><div class="polaroid-front"><div class="polaroid-ph" style="${polSrc?`background-image:url('${polSrc}')`:''}">${polSrc?'':ICONS.image}</div></div></div></div>
-    <div class="apps-widget">${apps.map(a=>`<button class="desk-app" onclick="${a.comingSoon ? `showComingSoon('陪伴')` : `go('${a.id}')`}"><span class="desk-app-ico">${ICONS[a.icon]}${a.hasBadge ? '<span class="badge-dot show"></span>' : ''}</span><span class="desk-app-name">${a.label}</span></button>`).join('')}</div>
+    <div class="apps-widget">${apps.map(a=>`<button class="desk-app" onclick="go('${a.id}')"><span class="desk-app-ico">${ICONS[a.icon]}${a.hasBadge ? '<span class="badge-dot show"></span>' : ''}</span><span class="desk-app-name">${a.label}</span></button>`).join('')}</div>
     <div class="anniv-widget" onclick="editAnniversary()"><div class="anniv-label">${esc(a.title||'纪念日')}</div><div class="anniv-days">${days}</div><div class="anniv-unit">天</div></div>
     <div class="dialog-widget"><div class="dlg-row"><img class="dlg-av" src="${avatarSrc(d.a.avatar||'','A')}" onclick="editDialogAvatar('a')"><div class="dlg-bubble" onclick="editDialogText('a')">${esc(d.a.text||'点击编辑')}</div></div><div class="dlg-row right"><div class="dlg-bubble" onclick="editDialogText('b')">${esc(d.b.text||'点击编辑')}</div><img class="dlg-av" src="${avatarSrc(d.b.avatar||'','B')}" onclick="editDialogAvatar('b')"></div></div>
   </div></div></div>`;
@@ -2249,11 +2456,14 @@ function pushMsg(cid,msg){
     else if(msg.type === 'quiz') preview = '[问卷]';
     else if(msg.type === 'listenInvite') preview = '[一起听]';
 
-    if(!isCurrentChat || document.hidden){
-      sendSystemNotification(title, preview, false, 'libum-chat-' + cid, { cid: cid });
-      if(!document.hidden){
-        showHeadsUpNotice(av, title, preview, () => go('chatRoom', {id: cid}));
-      }
+    // 关键修复：只要不在「当前聊天页 + 页面可见」状态，就发系统通知
+    const inThisChat = isCurrentChat && !document.hidden;
+    if(!inThisChat){
+      enqueueNotification(title, preview, 'libum-chat-' + cid, { cid: cid });
+    }
+    // 页面可见时弹 heads-up
+    if(!document.hidden){
+      showHeadsUpNotice(av, title, preview, () => go('chatRoom', {id: cid}));
     }
   }
 }
@@ -2680,7 +2890,7 @@ function checkAllTimers(){
           S.unread.moments++;
           save();
           const title = (c.name || c.remark || '好友') + ' 发布了新动态';
-          sendSystemNotification(title, generated.text || '[图片]', false, 'libum-moment', {});
+          enqueueNotification(title, generated.text || '[图片]', 'libum-moment', {});
           if(!document.hidden){ showHeadsUpNotice(avatarSrc(c.avatar, c.name), title, generated.text || '[图片]', () => go('moments')); }
           if (stack[stack.length-1].name === 'moments') render(); else updateBadges();
         }
@@ -2698,7 +2908,7 @@ function checkAllTimers(){
       S.unread.letters++;
       save();
       const title = (c.name || c.remark || '好友') + ' 的来信';
-      sendSystemNotification(title, body, false, 'libum-letter', {});
+      enqueueNotification(title, body, 'libum-letter', {});
       if(!document.hidden){ showHeadsUpNotice(avatarSrc(c.avatar, c.name), title, body, () => go('mail')); }
       if (stack[stack.length-1].name === 'mail') render(); else updateBadges();
     }
@@ -2759,7 +2969,7 @@ setInterval(() => {
         S.unread.moments++;
         save();
         const title = (c.name || c.remark || '好友') + ' 发布了新动态';
-        sendSystemNotification(title, generated.text || '[图片]', false, 'libum-moment', {});
+        enqueueNotification(title, generated.text || '[图片]', 'libum-moment', {});
         if(!document.hidden){ showHeadsUpNotice(avatarSrc(c.avatar, c.name), title, generated.text || '[图片]', () => go('moments')); }
         if (stack[stack.length-1].name === 'moments') render(); else updateBadges();
       }
@@ -2808,7 +3018,7 @@ setInterval(() => {
       S.unread.letters++;
       save();
       const title = (c.name || c.remark || '好友') + ' 的来信';
-      sendSystemNotification(title, body, false, 'libum-letter', {});
+      enqueueNotification(title, body, 'libum-letter', {});
       if(!document.hidden){ showHeadsUpNotice(avatarSrc(c.avatar, c.name), title, body, () => go('mail')); }
       if (stack[stack.length-1].name === 'mail') render(); else updateBadges();
     }
@@ -2866,6 +3076,11 @@ setInterval(() => {
   }
 }, 60000);
 
+/* 兜底：每 90s 主动检查一次（即使 Worker 失败） */
+setInterval(() => {
+  if(S.settings.keepAlive) runTimersNow();
+}, 90000);
+
 function viewVisitors(){
   const v = S.visitors.filter(x => getContact(x.id)).sort((a,b)=>b.time-a.time);
   return `<div class="page"><div class="subhead"><button class="icon-btn" onclick="back()">${ICONS.back}</button><div class="subhead-title">访客</div><div style="width:32px"></div></div><div class="page-scroll">${v.length===0?`<div class="empty">${ICONS.eye}<div>还没有访客记录</div></div>`:v.map(x=>{ const c = getContact(x.id); return `<div class="list-item" style="flex-direction:column;align-items:stretch;gap:0;"><div style="display:flex;align-items:center;gap:13px;"><img class="li-avatar" src="${avatarSrc(c.avatar,c.name)}"><div class="li-main"><div class="li-name">${esc(c.name)}</div><div class="li-sub">${timeAgo(x.time)}</div></div></div>${x.note?`<div style="margin-top:10px;padding:9px 12px;background:rgba(255,255,255,.12);border-radius:12px;font-size:12.5px;line-height:1.55;">${esc(x.note)}</div>`:''}</div>`; }).join('')}</div></div>`;
@@ -2916,7 +3131,7 @@ function scheduleReply(cid,title){
   setTimeout(()=>{ const body=composeLetterBody(); S.letters.push({id:uid(),cid,from:'mj',title:'回信 · '+title,body,time:Date.now(),read:false}); S.unread.letters++; save();
     const c = getContact(cid);
     const t = (c ? c.name : '对方') + ' 的回信';
-    sendSystemNotification(t, body, false, 'libum-letter', {});
+    enqueueNotification(t, body, 'libum-letter', {});
     if(!document.hidden && c){ showHeadsUpNotice(avatarSrc(c.avatar, c.name), t, body, () => go('mail')); }
     if(stack[stack.length-1].name==='mail')render(); else updateBadges();
   },rnd(20000,45000));
@@ -3087,7 +3302,6 @@ function metingToSong(item){
   const name = item.name || item.title || '未知歌曲';
   const artist = item.artist || item.author || '未知歌手';
   const cover = item.pic || item.cover || '';
-  // ⭐ 修复：强制使用网易云外链播放地址，避免 Meting API 返回的 url 有时效性或 VIP 限制
   const url = `https://music.163.com/song/media/outer/url?id=${id}.mp3`;
   return { id, name, artist, cover, url };
 }
@@ -4043,7 +4257,409 @@ function showToast(text){
   toastTimer=setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(8px)'; },2200);
 }
 
-const VIEWS={ home:viewHome, contacts:viewContacts, moments:viewMoments, profile:viewProfile, chatList:viewChatList, chatRoom:viewChatRoom, mail:viewMail, listen:viewListen, visitors:viewVisitors, cards:viewCards, quizLib:viewQuizLib };
+/* ============ ⭐ 陪伴主页 ============ */
+function viewCompanionHome() {
+  return `<div class="page">
+    <div class="subhead">
+      <button class="icon-btn" onclick="back()">${ICONS.back}</button>
+      <div class="subhead-title">陪伴</div>
+      <div style="width:32px"></div>
+    </div>
+    <div class="page-scroll">
+      <div class="sec-title">互动板块</div>
+      <div class="companion-list">
+        <div class="companion-card" onclick="go('watchHome')">
+          <div class="companion-icon" style="background:linear-gradient(135deg,#7f8ff5,#a58cf0);">${ICONS.video}</div>
+          <div class="companion-info">
+            <div class="companion-name">一起看</div>
+            <div class="companion-desc">和对方一起刷抖音、B站、看电影</div>
+          </div>
+          <button class="icon-btn">${ICONS.chev}</button>
+        </div>
+        <div class="companion-card" onclick="showComingSoon('一起玩')">
+          <div class="companion-icon" style="background:linear-gradient(135deg,#ffb08a,#f9a8d4);">${ICONS.sparkle}</div>
+          <div class="companion-info">
+            <div class="companion-name">一起玩</div>
+            <div class="companion-desc">敬请期待，更多互动小游戏</div>
+          </div>
+          <button class="icon-btn">${ICONS.chev}</button>
+        </div>
+        <div class="companion-card" onclick="showComingSoon('一起睡')">
+          <div class="companion-icon" style="background:linear-gradient(135deg,#7fd8d0,#8fd3f4);">${ICONS.music}</div>
+          <div class="companion-info">
+            <div class="companion-name">一起睡</div>
+            <div class="companion-desc">敬请期待，同步助眠白噪音</div>
+          </div>
+          <button class="icon-btn">${ICONS.chev}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============ ⭐ 一起看视图 ============ */
+let watchRoomCtx = {};
+
+function parseVideoUrl(url) {
+  if (!url) return { type: 'unknown', typeLabel: '未知' };
+  const u = url.trim();
+
+  let m = u.match(/b23\.tv\/([A-Za-z0-9]+)/);
+  if (m) {
+    return { type: 'bilibili_short', typeLabel: 'B站短链', videoId: m[1], embedUrl: '', originalUrl: u };
+  }
+  m = u.match(/bilibili\.com\/video\/(BV[A-Za-z0-9]+)/);
+  if (m) {
+    return { type: 'bilibili', typeLabel: 'B站视频', videoId: m[1],
+      embedUrl: `https://player.bilibili.com/player.html?bvid=${m[1]}&autoplay=0&high_quality=1`, originalUrl: u };
+  }
+
+  m = u.match(/v\.douyin\.com\/([A-Za-z0-9]+)/);
+  if (m) {
+    return { type: 'douyin_short', typeLabel: '抖音短链', videoId: m[1], embedUrl: '', originalUrl: u };
+  }
+  m = u.match(/(?:douyin|iesdouyin)\.com\/(?:video|share\/video)\/(\d+)/);
+  if (m) {
+    return { type: 'douyin', typeLabel: '抖音', videoId: m[1],
+      embedUrl: `https://open.douyin.com/player/video?vid=${m[1]}&autoplay=1`, originalUrl: u };
+  }
+
+  m = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (m) {
+    return { type: 'youtube', typeLabel: 'YouTube', videoId: m[1],
+      embedUrl: `https://www.youtube.com/embed/${m[1]}?autoplay=1`, originalUrl: u };
+  }
+
+  if (/v\.youku\.com|iqiyi\.com|v\.qq\.com/.test(u)) {
+    return { type: 'cn_video', typeLabel: '影视平台', embedUrl: '', originalUrl: u };
+  }
+
+  if (/\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(u)) {
+    return { type: 'direct', typeLabel: '视频文件', embedUrl: u, originalUrl: u };
+  }
+
+  return { type: 'external', typeLabel: '外部链接', embedUrl: '', originalUrl: u };
+}
+
+function renderWatchPlayer(parsed, room) {
+  if (parsed.type === 'direct') {
+    return `<video src="${esc(parsed.embedUrl)}" controls autoplay playsinline class="watch-iframe" style="object-fit:contain;"></video>`;
+  }
+  
+  if (parsed.type === 'bilibili_short' || parsed.type === 'douyin_short') {
+    let tips = parsed.type === 'bilibili_short' 
+      ? '由于浏览器安全策略，无法自动解析 B站短链接 (b23.tv)。请复制 B站 完整视频链接 (包含 BV号) 重新粘贴。' 
+      : '由于抖音的防盗链限制，无法直接解析短链接。请使用完整链接 (包含 video/数字) 重新粘贴。';
+    return `<div class="watch-fallback">
+      <div class="watch-fallback-icon" style="background:rgba(255,200,100,.2);color:#ffd24a;">${ICONS.feedback}</div>
+      <div class="watch-fallback-title">无法解析短链接</div>
+      <div class="watch-fallback-desc" style="max-width:280px;margin:0 auto;margin-bottom:12px;line-height:1.6;">${tips}</div>
+      <div style="display:flex;gap:10px;">
+        <a class="watch-fallback-btn" style="background:rgba(255,255,255,.15);" onclick="changeWatchUrl()" href="javascript:void(0)">重新粘贴</a>
+        <a class="watch-fallback-btn" href="${esc(parsed.originalUrl)}" target="_blank" rel="noopener">${ICONS.download} 外部打开</a>
+      </div>
+    </div>`;
+  }
+
+  if (parsed.type === 'douyin') {
+    return `<div class="watch-iframe-wrap">
+      <iframe src="${parsed.embedUrl}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; web-share" allowfullscreen webkitallowfullscreen frameborder="0" class="watch-iframe"></iframe>
+      <div style="position:absolute;bottom:6px;left:0;right:0;text-align:center;pointer-events:none;">
+        <span style="font-size:10px;color:rgba(255,255,255,.5);background:rgba(0,0,0,.5);padding:2px 8px;border-radius:10px;">如无法播放请<a href="${esc(parsed.originalUrl)}" target="_blank" style="color:#7f8ff5;pointer-events:auto;">点击外部打开</a></span>
+      </div>
+    </div>`;
+  }
+
+  if (parsed.embedUrl) {
+    return `<iframe src="${parsed.embedUrl}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; web-share" allowfullscreen webkitallowfullscreen mozallowfullscreen frameborder="0" class="watch-iframe"></iframe>`;
+  }
+
+  return `<div class="watch-fallback">
+    <div class="watch-fallback-icon">${ICONS.video}</div>
+    <div class="watch-fallback-title">该链接无法内嵌播放</div>
+    <div class="watch-fallback-desc">${esc(parsed.typeLabel)} · 平台限制，只能外部打开</div>
+    <a class="watch-fallback-btn" href="${esc(parsed.originalUrl)}" target="_blank" rel="noopener">${ICONS.download} 在外部打开</a>
+  </div>`;
+}
+
+function renderWatchMsg(m, c) {
+  if (m.type === 'sys') return `<div class="sys-msg">${esc(m.text)}</div>`;
+  const isMe = m.from === 'me';
+  const name = isMe ? (S.user.name||'我') : c.name;
+  const av = isMe ? S.user.avatar : c.avatar;
+  return `<div class="msg-row ${isMe?'me':'mj'} watch-msg">
+    ${!isMe ? `<img class="msg-avatar" src="${avatarSrc(av,name)}" style="border-radius:10px;width:28px;height:28px">` : ''}
+    <div class="watch-bubble ${isMe?'me':''}">${esc(m.text)}</div>
+    ${isMe ? `<img class="msg-avatar" src="${avatarSrc(av,name)}" style="border-radius:10px;width:28px;height:28px">` : ''}
+  </div>`;
+}
+
+function viewWatchHome() {
+  const rooms = (S.watchTogether.rooms || []).filter(r => getContact(r.cid));
+  const active = S.watchTogether.activeRoom;
+
+  return `<div class="page">
+    <div class="subhead">
+      <button class="icon-btn" onclick="back()">${ICONS.back}</button>
+      <div class="subhead-title">一起看</div>
+      <button class="icon-btn" onclick="openWatchLinkModal()">${ICONS.plus}</button>
+    </div>
+    <div class="page-scroll">
+      ${active ? `
+        <div class="watch-active-card" onclick="go('watchRoom',{roomId:'${active.id}'})">
+          <div class="watch-active-glow"></div>
+          <div class="watch-active-inner">
+            <div class="watch-active-cover">${ICONS.video}</div>
+            <div class="watch-active-info">
+              <div class="watch-active-tag">● 正在一起看</div>
+              <div class="watch-active-title">${esc(active.title||'未命名视频')}</div>
+              <div class="watch-active-sub">与 ${esc(getContact(active.cid)?.name||'对方')} 共同观看</div>
+            </div>
+          </div>
+        </div>
+      ` : `
+        <div class="watch-hero">
+          <div class="watch-hero-icon">${ICONS.video}</div>
+          <div class="watch-hero-title">邀请对方一起看</div>
+          <div class="watch-hero-desc">粘贴抖音、B站、YouTube 等视频链接<br>和对方同步观影、实时讨论</div>
+          <button class="watch-hero-btn" onclick="openWatchLinkModal()">${ICONS.plus} 导入视频链接</button>
+        </div>
+      `}
+      <div class="sec-title">观影记录</div>
+      ${rooms.length === 0 ? `
+        <div class="empty">${ICONS.video}<div>还没有观影记录</div><div style="font-size:11.5px;opacity:.7;margin-top:6px">导入链接开始第一次一起看</div></div>
+      ` : rooms.slice().reverse().map(r => {
+        const c = getContact(r.cid) || {};
+        return `<div class="list-item" onclick="go('watchRoom',{roomId:'${r.id}'})">
+          <div class="watch-hist-cover">${ICONS.video}</div>
+          <div class="li-main">
+            <div class="li-name" style="font-size:13.5px">${esc(r.title||'未命名')}</div>
+            <div class="li-sub">与 ${esc(c.name||'对方')} · ${timeAgo(r.startedAt)}</div>
+          </div>
+          <button class="icon-btn" onclick="event.stopPropagation();deleteWatchRoom('${r.id}')">${ICONS.close}</button>
+        </div>`;
+      }).join('')}
+      <div style="height:20px"></div>
+    </div>
+  </div>`;
+}
+
+function viewWatchRoom(p) {
+  const roomId = p.roomId;
+  const room = (S.watchTogether.rooms || []).find(r => r.id === roomId);
+  if (!room) return `<div class="page"><div class="empty">房间不存在</div></div>`;
+  const c = getContact(room.cid) || { name: '对方', avatar: '' };
+  watchRoomCtx = { roomId, room, cid: room.cid };
+
+  const msgs = room.messages || [];
+  const parsed = parseVideoUrl(room.url);
+  const isVertical = parsed.type === 'douyin';
+  const playerClass = 'watch-player' + (isVertical ? ' vertical' : '');
+
+  return `<div class="page watch-room-page">
+    <div class="subhead">
+      <button class="icon-btn" onclick="back()">${ICONS.back}</button>
+      <div class="subhead-title-capsule">
+        <img class="subhead-avatar" src="${avatarSrc(c.avatar,c.name)}">
+        <span class="subhead-title">一起看 · ${esc(c.name)}</span>
+      </div>
+      <button class="icon-btn" onclick="openWatchSettings()">${ICONS.more}</button>
+    </div>
+    <div class="${playerClass}" id="watchPlayer">
+      ${renderWatchPlayer(parsed, room)}
+      <button type="button" class="watch-fs-btn" onclick="toggleWatchFullscreen()" aria-label="全屏">${ICONS.fullscreen}</button>
+    </div>
+    <div class="watch-meta">
+      <div class="watch-meta-title">${esc(room.title||'未命名视频')}</div>
+      <div class="watch-meta-sub">${esc(parsed.typeLabel||'视频')} · ${esc(c.name)} 也在看</div>
+    </div>
+    <div class="watch-chat" id="watchChat">
+      ${msgs.map(m => renderWatchMsg(m, c)).join('')}
+    </div>
+    <div class="watch-inputbar">
+      <div class="chat-input">
+        <input id="watchInput" type="text" placeholder="边看边聊…" onkeydown="if(event.key==='Enter'){sendWatchMsg()}">
+      </div>
+      <button class="send-btn" onclick="sendWatchMsg()">${ICONS.send}</button>
+    </div>
+  </div>`;
+}
+
+function openWatchLinkModal() {
+  if (!S.contacts.length) { showToast('请先添加联系人'); return; }
+  const opts = S.contacts.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  const m = openModal(`
+    <div class="modal-title">一起看</div>
+    <div class="field-label">邀请谁一起看</div>
+    <select class="field-input" id="wCid" style="appearance:none;background:rgba(255,255,255,.16)">${opts}</select>
+    <div class="field-label">视频链接</div>
+    <input class="field-input" id="wUrl" placeholder="粘贴抖音 / B站 / YouTube 链接…">
+    <div class="field-label">标题（可选）</div>
+    <input class="field-input" id="wTitle" placeholder="给这个视频起个名字">
+    <div style="font-size:11px;opacity:.6;line-height:1.7;margin-top:6px;padding:10px 12px;background:rgba(255,255,255,.08);border-radius:10px;">
+      支持：B站完整链接(含BV号) · YouTube · 直链视频<br>
+      抖音由于防盗链限制，请尽量使用外部打开。
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">取消</button>
+      <button class="btn" id="wStart">开始一起看</button>
+    </div>
+  `);
+  m.querySelector('#wStart').onclick = () => {
+    const cid = m.querySelector('#wCid').value;
+    const url = m.querySelector('#wUrl').value.trim();
+    if (!url) { showToast('请粘贴视频链接'); return; }
+    const title = m.querySelector('#wTitle').value.trim() || '一起看视频';
+    closeModal();
+    startWatchRoom(cid, url, title);
+  };
+}
+
+function startWatchRoom(cid, url, title) {
+  const room = {
+    id: uid(), cid, url, title,
+    startedAt: Date.now(),
+    messages: [{ from: 'sys', type: 'sys', text: '你们开始一起看了', time: Date.now() }]
+  };
+  if (!S.watchTogether.rooms) S.watchTogether.rooms = [];
+  S.watchTogether.rooms.push(room);
+  if (S.watchTogether.rooms.length > 30) S.watchTogether.rooms = S.watchTogether.rooms.slice(-30);
+  S.watchTogether.activeRoom = { id: room.id, cid, title, startedAt: room.startedAt };
+  save();
+  go('watchRoom', { roomId: room.id });
+  setTimeout(() => {
+    const r2 = S.watchTogether.rooms.find(r => r.id === room.id);
+    if (!r2) return;
+    r2.messages.push({ from: 'mj', type: 'text', text: pick(['来啦来啦','我准备好了','一起看！','这个好看吗？']), time: Date.now() });
+    save();
+    if (watchRoomCtx.roomId === room.id) renderWatchChat();
+  }, rnd(1500, 3000));
+}
+
+function renderWatchChat() {
+  const el = $('#watchChat'); if (!el) return;
+  const room = S.watchTogether.rooms.find(r => r.id === watchRoomCtx.roomId); if (!room) return;
+  const c = getContact(watchRoomCtx.cid) || { name: '对方', avatar: '' };
+  el.innerHTML = (room.messages || []).map(m => renderWatchMsg(m, c)).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function sendWatchMsg() {
+  const inp = $('#watchInput'); if (!inp) return;
+  const t = inp.value.trim(); if (!t) return;
+  const room = S.watchTogether.rooms.find(r => r.id === watchRoomCtx.roomId); if (!room) return;
+  room.messages.push({ from: 'me', type: 'text', text: t, time: Date.now() });
+  inp.value = '';
+  save(); renderWatchChat();
+  if (Math.random() < 0.7) {
+    setTimeout(() => {
+      const r2 = S.watchTogether.rooms.find(r => r.id === watchRoomCtx.roomId); if (!r2) return;
+      r2.messages.push({ from: 'mj', type: 'text', text: pick(S.watchTogether.watchCards), time: Date.now() });
+      save();
+      if (watchRoomCtx.roomId === r2.id) renderWatchChat();
+    }, rnd(1200, 3500));
+  }
+}
+
+function openWatchSettings() {
+  const room = S.watchTogether.rooms.find(r => r.id === watchRoomCtx.roomId); if (!room) return;
+  openModal(`
+    <div class="modal-title">观影设置</div>
+    <div class="set-row" onclick="changeWatchTitle()" style="cursor:pointer;"><span>修改标题</span><span class="set-val">›</span></div>
+    <div class="set-row" onclick="changeWatchUrl()" style="cursor:pointer;"><span>更换视频链接</span><span class="set-val">›</span></div>
+    <div class="set-row" onclick="endWatchRoom()" style="cursor:pointer;"><span style="color:#ffd0d8">结束这次一起看</span><span class="set-val">›</span></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">关闭</button></div>
+  `);
+}
+
+function changeWatchTitle() {
+  const room = S.watchTogether.rooms.find(r => r.id === watchRoomCtx.roomId); if (!room) return;
+  closeModal();
+  const m = openModal(`<div class="modal-title">修改标题</div><input class="field-input" id="wtTitle" value="${esc(room.title||'')}"><div class="modal-actions"><button class="btn ghost" onclick="closeModal()">取消</button><button class="btn" id="wtSave">保存</button></div>`);
+  m.querySelector('#wtSave').onclick = () => { room.title = m.querySelector('#wtTitle').value.trim() || '一起看视频'; save(); closeModal(); render(); };
+}
+
+function changeWatchUrl() {
+  const room = S.watchTogether.rooms.find(r => r.id === watchRoomCtx.roomId); if (!room) return;
+  closeModal();
+  const m = openModal(`<div class="modal-title">更换视频</div><input class="field-input" id="wuUrl" value="${esc(room.url)}" placeholder="新链接"><div class="modal-actions"><button class="btn ghost" onclick="closeModal()">取消</button><button class="btn" id="wuSave">确定</button></div>`);
+  m.querySelector('#wuSave').onclick = () => { room.url = m.querySelector('#wuUrl').value.trim() || room.url; room.messages.push({from:'sys',type:'sys',text:'视频已更换',time:Date.now()}); save(); closeModal(); render(); };
+}
+
+function endWatchRoom() {
+  if (S.watchTogether.activeRoom) S.watchTogether.activeRoom = null;
+  save(); closeModal(); showToast('已结束一起看'); back();
+}
+
+function deleteWatchRoom(id) {
+  S.watchTogether.rooms = S.watchTogether.rooms.filter(r => r.id !== id);
+  if (S.watchTogether.activeRoom && S.watchTogether.activeRoom.id === id) S.watchTogether.activeRoom = null;
+  save(); render();
+}
+
+/* ============ 一起看：全屏控制 ============ */
+function toggleWatchFullscreen() {
+  const el = document.getElementById('watchPlayer');
+  if (!el) return;
+
+  if (el.classList.contains('fake-fullscreen')) {
+    el.classList.remove('fake-fullscreen', 'landscape-fs');
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
+    updateWatchFsBtn();
+    return;
+  }
+
+  const d = document;
+  const getFsEl = () => d.fullscreenElement || d.webkitFullscreenElement || d.mozFullScreenElement || d.msFullscreenElement;
+
+  if (getFsEl()) {
+    const exit = d.exitFullscreen || d.webkitExitFullscreen || d.mozCancelFullScreen || d.msExitFullscreen;
+    if (exit) { try { exit.call(d); } catch (e) {} }
+    return;
+  }
+
+  const enableFakeFs = () => {
+    el.classList.add('fake-fullscreen');
+    el.classList.add('landscape-fs');
+    updateWatchFsBtn();
+  };
+
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+  if (req) {
+    try {
+      const p = req.call(el);
+      if (p) {
+        p.then(() => {
+           try { if(screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); } catch(e){}
+        }).catch(() => {
+           enableFakeFs();
+        });
+      }
+      setTimeout(() => {
+        if (!getFsEl() && !el.classList.contains('fake-fullscreen')) {
+          enableFakeFs();
+        }
+      }, 500);
+      return;
+    } catch (e) {}
+  }
+
+  enableFakeFs();
+}
+
+function updateWatchFsBtn() {
+  const btn = document.querySelector('.watch-fs-btn');
+  const el = document.getElementById('watchPlayer');
+  if (!btn) return;
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || (el && el.classList.contains('fake-fullscreen')));
+  btn.innerHTML = isFs ? ICONS.fullscreenExit : ICONS.fullscreen;
+  btn.setAttribute('aria-label', isFs ? '退出全屏' : '全屏');
+}
+document.addEventListener('fullscreenchange', updateWatchFsBtn);
+document.addEventListener('webkitfullscreenchange', updateWatchFsBtn);
+
+const VIEWS={ home:viewHome, contacts:viewContacts, moments:viewMoments, profile:viewProfile, chatList:viewChatList, chatRoom:viewChatRoom, mail:viewMail, listen:viewListen, visitors:viewVisitors, cards:viewCards, quizLib:viewQuizLib,
+  companionHome:viewCompanionHome, watchHome:viewWatchHome, watchRoom:viewWatchRoom };
 
 if (!S.settings.nextLetterTime) {
   const minH = S.settings.letterMinHours || 2;
@@ -4125,6 +4741,24 @@ if (S.settings.keepAlive) {
       console.log('已从 IndexedDB 恢复完整数据');
     }
   }catch(e){ console.warn('IDB 恢复失败', e); }
+})();
+
+/* ============ 首次点击主动请求通知权限（一次，不骚扰） ============ */
+(function ensureNotificationPermission(){
+  try{
+    if(!('Notification' in window)) return;
+    if(Notification.permission === 'granted') return;
+    if(Notification.permission === 'denied') return;
+    const ask = () => {
+      document.removeEventListener('click', ask);
+      document.removeEventListener('touchstart', ask);
+      requestNotificationPermission().then(ok => {
+        if(ok) showToast('系统通知已开启');
+      });
+    };
+    document.addEventListener('click', ask, { once: true });
+    document.addEventListener('touchstart', ask, { once: true });
+  }catch(e){}
 })();
 
 window.addEventListener('beforeunload', () => { try{ save(true); }catch(e){} });
