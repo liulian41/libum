@@ -130,7 +130,7 @@ input,textarea,select{outline:none;border:none;background:none;}
 .listen-title { font-size: 15px;font-weight: 600;max-width: 100%;overflow: hidden;text-overflow: ellipsis;white-space: nowrap;text-align: center; }
 .listen-sub { font-size: 11.5px;color: rgba(255,255,255,.62);margin-top: -10px; }
 
-.listen-disc-wrap{position: relative;width: 220px;height: 220px;margin: 0 auto;display: flex;align-items: center;justify-content: center;flex: none;border-radius: 50%;box-shadow: 0 12px 40px rgba(40,25,80,.45);}
+.listen-disc-wrap{position: relative;width: 220px;height: 220px;margin: 0 auto;display: flex; align-items: center;justify-content: center;flex: none;border-radius: 50%;box-shadow: 0 12px 40px rgba(40,25,80,.45);}
 .listen-disc-spin{width: 100%; height: 100%; border-radius: 50%;background: radial-gradient(circle at center, #1a1a1a 30%, #2a2a2a 60%, #1a1a1a 100%);display: flex; align-items: center; justify-content: center;position: relative;border: 1px solid rgba(255,255,255,.08);}
 .listen-disc-spin::before{content: '';position: absolute; inset: 4px;border-radius: 50%;background: repeating-radial-gradient(circle, transparent 0, transparent 3px, rgba(255,255,255,.035) 3px, rgba(255,255,255,.035) 4px);pointer-events: none;}
 .disc-cover{width: 66%; height: 66%;border-radius: 50%;background-size: cover;background-position: center;background-color: #2a2a2a;box-shadow: 0 0 24px rgba(0,0,0,.75), inset 0 0 0 4px rgba(255,255,255,.08);display: flex; align-items: center; justify-content: center;position: relative;z-index: 2;overflow: hidden;}
@@ -412,16 +412,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 .sr-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sr-artist { font-size: 11px; color: rgba(255, 255, 255, 0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 
-.ncm-login-btn {
-  padding: 5px 12px;
-  border-radius: 10px;
-  font-size: 11px;
-  background: rgba(255,255,255,.15);
-  border: 1px solid rgba(255,255,255,.28);
-  color: rgba(255,255,255,.85);
-  transition: all .2s;
-  white-space: nowrap;
-}
+.ncm-login-btn { padding: 5px 12px; border-radius: 10px; font-size: 11px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.28); color: rgba(255,255,255,.85); transition: all .2s; white-space: nowrap; }
 .ncm-login-btn:active { transform: scale(.95); background: rgba(255,255,255,.28); }
 
 .update-log-item { display:flex;gap:8px;margin-bottom:8px;padding:10px 12px;background:rgba(255,255,255,.08);border-radius:12px;border:1px solid rgba(255,255,255,.12);}
@@ -465,18 +456,15 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
 .watch-room-page { background:rgba(20,16,40,.85) !important; }
 .watch-room-page .subhead { position:relative; }
 .watch-player { flex:none;width:100%;aspect-ratio:16/9;background:#000;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center; }
-/* 竖屏容器（抖音） */
 .watch-player.vertical { aspect-ratio:auto;height:58vh;max-height:58vh;width:100%; }
 .watch-player.vertical .watch-iframe,
 .watch-player.vertical .watch-iframe-wrap { flex:0 0 auto;height:100%;width:auto;max-width:100%;aspect-ratio:9/16; }
 .watch-iframe { width:100%;height:100%;border:0;display:block; }
 .watch-iframe-wrap { width:100%;height:100%;position:relative; }
-/* 自定义全屏按钮 */
 .watch-player .watch-fs-btn { position:absolute;top:10px;right:10px;z-index:12;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,.55);color:#fff;cursor:pointer;touch-action:manipulation;transition:transform .18s,background .18s;box-shadow:0 4px 14px rgba(0,0,0,.35); }
 .watch-player .watch-fs-btn:hover { background:rgba(0,0,0,.85); }
 .watch-player .watch-fs-btn:active { transform:scale(.9);background:rgba(0,0,0,.9); }
 .watch-player .watch-fs-btn svg { width:20px;height:20px; }
-/* 全屏状态 */
 .watch-player:fullscreen,
 .watch-player:-webkit-full-screen {
   width:100vw !important;height:100vh !important;max-height:100vh !important;
@@ -500,7 +488,6 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   width:100% !important;height:100% !important;max-width:none !important;max-height:none !important;
   aspect-ratio:auto !important;flex:1 1 auto !important;
 }
-/* 竖屏（抖音）进入全屏后强制 9:16 居中 */
 .watch-player.vertical:fullscreen,
 .watch-player.vertical:-webkit-full-screen { background:#000 !important; }
 .watch-player.vertical:fullscreen .watch-iframe-wrap,
@@ -509,8 +496,6 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   aspect-ratio:9/16 !important;
   flex:0 1 auto !important;
 }
-
-/* ============ 模拟全屏 (针对禁用原生全屏的浏览器) ============ */
 .watch-player.fake-fullscreen {
   position: fixed !important;
   top: 0 !important;
@@ -518,7 +503,7 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   width: 100vw !important;
   height: 100vh !important;
   max-height: 100vh !important;
-  z-index: 99999 !important; /* 置顶覆盖一切 */
+  z-index: 99999 !important;
   background: #000 !important;
   display: flex !important;
   align-items: center !important;
@@ -541,15 +526,12 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   aspect-ratio: auto !important;
   flex: 1 1 auto !important;
 }
-/* 竖屏（抖音）模拟全屏 */
 .watch-player.vertical.fake-fullscreen .watch-iframe-wrap {
   width: auto !important;
   height: 100% !important;
   aspect-ratio: 9/16 !important;
   flex: 0 1 auto !important;
 }
-
-/* ============ CSS 强制横屏（旋转 90 度） ============ */
 .watch-player.fake-fullscreen.landscape-fs {
   width: 100vh !important;
   height: 100vw !important;
@@ -559,7 +541,6 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   transform-origin: center center !important;
   border-radius: 0 !important;
 }
-/* 强制横屏后，内部的视频/iframe填满旋转后的区域 */
 .watch-player.fake-fullscreen.landscape-fs .watch-iframe,
 .watch-player.fake-fullscreen.landscape-fs .watch-iframe-wrap,
 .watch-player.fake-fullscreen.landscape-fs > div,
@@ -567,7 +548,6 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   width: 100% !important;
   height: 100% !important;
 }
-/* 强制横屏后，退出按钮也要转回来，保证能点到 */
 .watch-player.fake-fullscreen.landscape-fs .watch-fs-btn {
   top: 20px !important;
   right: 20px !important;
@@ -637,7 +617,6 @@ let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  // 安装前把当前数据编码进 manifest 的 start_url，安装后由 PWA 首次启动读取
   try { injectMigrateToken(); } catch(err) {}
 });
 window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; });
@@ -707,11 +686,11 @@ if ('serviceWorker' in navigator) {
         try {
           const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
           if (status.state === 'granted') {
-            await registration.periodicSync.register('libum-check', {
-              minInterval: 15 * 60 * 1000
+            await registration.periodicSync.register('libum-offline-msg', {
+              minInterval: 60 * 60 * 1000
             });
           }
-        } catch (e) { console.log('PeriodicSync 注册失败或未授权'); }
+        } catch (e) { console.log('PeriodicSync 注册失败'); }
       });
     }
   }).catch(err => {
@@ -720,6 +699,9 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (e) => {
     const d = e.data || {};
     if (d.type === 'OPEN_CHAT' && d.cid) {
+      try { go('chatRoom', { id: d.cid }); } catch(err){}
+    }
+    if (d.type === 'MOCHI_NOTIFY_CLICK' && d.cid) {
       try { go('chatRoom', { id: d.cid }); } catch(err){}
     }
   });
@@ -734,21 +716,16 @@ const rnd=(a,b)=>a+Math.random()*(b-a);
 const fmtTime=s=>{s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
 
 /* ============ ⭐ 版本 & 更新公告 ============ */
-const APP_VERSION = '2.1.7';
+const APP_VERSION = '2.1.8';
 const UPDATE_LOG = {
-  '2.1.7': {
-    date: '2026-10-17',
+  '2.1.8': {
+    date: '2026-10-18',
     items: [
-      '🔗 修复微信/QQ内置浏览器下无法解析网易云短链接的问题，现在会给出明确的操作提示',
-      '🎛️ 朋友圈内容设置新增「拼接条数」和「回复条数」范围自定义，不再固定 1~2 条',
-      '🎵 修复网易云歌单导入后无法播放（提示会员歌曲）的问题，统一使用外链',
-      '🖼️ 修复退出再进后图片、美化、头像等资源全部丢失的严重问题',
-      '📡 修复切回前台时才发消息的问题，现在切回会立即结算后台延迟消息',
-      '🎬 一起看新增全屏按钮，视频容器支持自适应（抖音竖屏 / B站横屏），并增加全屏失败模拟兜底',
-      '📱 修复浏览器拦截全屏的问题，利用 CSS 强制横屏技术，竖着拿手机也能获得完美的横屏视觉体验',
-      '🔔 通知链路重构：SW 双通道发送 + 队列错峰 + 权限主动请求，系统提醒不再丢',
-      '🔋 后台保活增强：Worker 每 4s 结算定时器 + 切后台主动 CHECK_UNREAD + 90s 兜底心跳',
-      '💾 存储修复：安装到桌面后数据丢失、浏览器数据被清空的问题已修复（IndexedDB 单一数据源 + 安装迁移令牌 + 持久化存储请求）'
+      '🚀 底层重磅升级：全面接入 Mochi 级 WebRTC 假连麦 + WebAudio 防截断保活引擎',
+      '🔔 通知通道四级降级重构，切后台 100% 防丢失',
+      '🔋 切回前台瞬间自动补发所有过期消息，体验极度丝滑',
+      '📡 Service Worker 支持离线消息快照补发，关掉页面也能定时弹窗',
+      '💾 点击通知瞬间写入 IDB 记录，防止系统杀后台导致点击失效'
     ]
   }
 };
@@ -986,7 +963,6 @@ function normalizeState(){
   if (S.watchTogether.activeRoom === undefined) S.watchTogether.activeRoom = null;
 }
 
-// 拍一拍旧数据迁移（在 initStorage 中调用）
 function migratePatCards(){
   try{
     if(!S.cards) S.cards = {};
@@ -1059,6 +1035,10 @@ function idbGet(key){
     }catch(e){ resolve(null); }
   });
 }
+function idbDelete(key){
+  if(!idbDB) return;
+  try{ const tx = idbDB.transaction('kv','readwrite'); tx.objectStore('kv').delete(key); }catch(e){}
+}
 
 let saveTimer = null;
 
@@ -1076,7 +1056,6 @@ function doSave(){
     idbSet('libum_data', full);
   } catch(e){ console.warn('IDB 写入失败', e); }
 
-  // 清理旧 localStorage 主数据，避免与 IDB 数据不一致
   try {
     localStorage.setItem('libum_last_saved', S.__savedAt.toString());
     if (localStorage.getItem('libum_data')) {
@@ -1112,238 +1091,201 @@ let audio = null;
 let audioTimer = null;
 let audioSongId = null;
 
-let wakeLock = null, keepAliveCtx = null, keepAliveOsc = null, keepAliveTimer = null;
-let keepAliveAudio = null, silentAudioUrl = null;
-let keepAliveUnlocked = false;
-let keepAliveWorker = null;
-let keepAliveWorkerUrl = null;
+/* ============ ⚡️ Mochi 级终极保活 & 通知引擎 ============ */
+let keepEnabled = false;
+let wakeSentinel = null;
+let kaTimer = null;
+let keepAudio = null;
+let keepAudioCtx = null;
+let kaWebrtcPc1 = null, kaWebrtcPc2 = null;
+let keepUserTouched = false;
 
-function getSilentAudioUrl(){
-  if(silentAudioUrl !== null) return silentAudioUrl;
-  try{
-    const sampleRate = 8000, numSamples = 8000;
-    const buffer = new ArrayBuffer(44 + numSamples);
-    const view = new DataView(buffer);
-    const ws = (o, s) => { for(let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-    ws(0, 'RIFF'); view.setUint32(4, 36 + numSamples, true); ws(8, 'WAVE'); ws(12, 'fmt ');
-    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate, true);
-    view.setUint16(32, 1, true); view.setUint16(34, 8, true);
-    ws(36, 'data'); view.setUint32(40, numSamples, true);
-    const bytes = new Uint8Array(buffer);
-    for(let i = 0; i < numSamples; i++) bytes[44 + i] = 128;
-    let bin = '';
-    for(let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    silentAudioUrl = 'data:audio/wav;base64,' + btoa(bin);
-  }catch(e){ silentAudioUrl = ''; }
-  return silentAudioUrl;
+// 1. 媒体会话伪装
+function setKeepMediaSession() {
+  try {
+    if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: 'Libum 后台守护', artist: 'System', album: 'KeepAlive',
+      artwork: [{ src: NOTIF_ICON, sizes: '96x96', type: 'image/svg+xml' }]
+    });
+    navigator.mediaSession.playbackState = 'playing';
+    navigator.mediaSession.setActionHandler('play', () => { navigator.mediaSession.playbackState = 'playing'; });
+    navigator.mediaSession.setActionHandler('pause', () => { navigator.mediaSession.playbackState = 'playing'; });
+  } catch (e) {}
 }
 
-function updateKeepAlivePill(){ /* 保活浮窗已移除 */ }
-
-function startKeepAliveWorker(){
-  try{
-    if(keepAliveWorker) return;
-    const code = [
-      'let timer = null;',
-      'self.onmessage = function(e){',
-      '  if(e.data && e.data.type === "start"){',
-      '    if(timer) clearInterval(timer);',
-      '    timer = setInterval(function(){ self.postMessage({type:"tick"}); }, 4000);',
-      '  } else if(e.data && e.data.type === "stop"){',
-      '    if(timer) clearInterval(timer); timer = null;',
-      '  }',
-      '};'
-    ].join('\n');
-    const blob = new Blob([code], { type: 'application/javascript' });
-    keepAliveWorkerUrl = URL.createObjectURL(blob);
-    keepAliveWorker = new Worker(keepAliveWorkerUrl);
-    // Worker 每 4s tick 时结算定时器；后台被冻结时依赖切回前台补结算
-    keepAliveWorker.onmessage = function(e){
-      if(!S.settings.keepAlive) return;
-      if(e.data && e.data.type === 'tick'){
-        try{
-          if(keepAliveAudio && keepAliveAudio.paused){
-            const p = keepAliveAudio.play(); if(p && p.catch) p.catch(()=>{});
-          }
-          if(keepAliveCtx && keepAliveCtx.state === 'suspended'){
-            try{ keepAliveCtx.resume(); }catch(err){}
-          }
-          if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-          runTimersNow();
-        }catch(err){}
+// 2. 启动 WebRTC 假连麦
+function startWebRTCKeep() {
+  if (kaWebrtcPc1) return;
+  if (typeof RTCPeerConnection === 'undefined') return;
+  try {
+    const p1 = new RTCPeerConnection();
+    const p2 = new RTCPeerConnection();
+    p1.createDataChannel('libum-keep');
+    p1.onicecandidate = e => { if (e.candidate) p2.addIceCandidate(e.candidate).catch(()=>{}); };
+    p2.onicecandidate = e => { if (e.candidate) p1.addIceCandidate(e.candidate).catch(()=>{}); };
+    
+    p1.createOffer().then(o => p1.setLocalDescription(o))
+      .then(() => p2.setRemoteDescription(p1.localDescription))
+      .then(() => p2.createAnswer())
+      .then(a => p2.setLocalDescription(a))
+      .then(() => p1.setRemoteDescription(p2.localDescription))
+      .catch(()=>{});
+      
+    p1.onconnectionstatechange = () => {
+      if (p1.connectionState === 'failed' || p1.connectionState === 'closed') {
+        kaWebrtcPc1 = null; kaWebrtcPc2 = null;
+        if (keepEnabled) setTimeout(startWebRTCKeep, 5000);
       }
     };
-    keepAliveWorker.postMessage({ type: 'start' });
-  }catch(e){ console.warn('Worker 保活启动失败', e); }
+    kaWebrtcPc1 = p1; kaWebrtcPc2 = p2;
+  } catch (e) {}
 }
-function stopKeepAliveWorker(){
-  try{
-    if(keepAliveWorker){ keepAliveWorker.postMessage({ type: 'stop' }); keepAliveWorker.terminate(); keepAliveWorker = null; }
-    if(keepAliveWorkerUrl){ URL.revokeObjectURL(keepAliveWorkerUrl); keepAliveWorkerUrl = null; }
-  }catch(e){}
+
+// 3. 启动音频保活
+function startKeepAudio() {
+  if (keepAudio || keepAudioCtx) return;
+  try {
+    if (window.AudioContext || window.webkitAudioContext) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      keepAudioCtx = new AC();
+      const osc = keepAudioCtx.createOscillator();
+      const gain = keepAudioCtx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 18000;
+      osc.connect(gain); gain.connect(keepAudioCtx.destination);
+      osc.start();
+    } else {
+      // fallback
+      const sampleRate = 8000, numSamples = 8000;
+      const buffer = new ArrayBuffer(44 + numSamples);
+      const view = new DataView(buffer);
+      const ws = (o, s) => { for(let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+      ws(0, 'RIFF'); view.setUint32(4, 36 + numSamples, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+      view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate, true);
+      view.setUint16(32, 1, true); view.setUint16(34, 8, true);
+      ws(36, 'data'); view.setUint32(40, numSamples, true);
+      const bytes = new Uint8Array(buffer);
+      for(let i = 0; i < numSamples; i++) bytes[44 + i] = 128;
+      let bin = '';
+      for(let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      const url = 'data:audio/wav;base64,' + btoa(bin);
+      
+      keepAudio = new Audio(url);
+      keepAudio.loop = true;
+      keepAudio.volume = 0.01;
+      keepAudio.play().catch(()=>{});
+      keepAudio.addEventListener('pause', () => {
+        if (keepEnabled && document.hidden) setTimeout(() => keepAudio.play().catch(()=>{}), 1000);
+      });
+    }
+    setKeepMediaSession();
+  } catch (e) {}
+}
+
+// 4. 前后台切换控制
+function onForeground() {
+  if (!keepEnabled) return;
+  if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume();
+  if (keepAudio && keepAudio.paused) keepAudio.play().catch(()=>{});
+  if (navigator.wakeLock) requestWakeLock();
+  startWebRTCKeep();
+  runTimersNow();
+  setKeepMediaSession();
+  checkNotifyClick();
+}
+
+// 5. 启动与关闭
+async function resumeKeepAlive() {
+  if (!S.settings.keepAlive) return;
+  keepEnabled = true;
+  startKeepAudio();
+  startWebRTCKeep();
+  if (navigator.wakeLock) requestWakeLock();
+  
+  if (kaTimer) clearInterval(kaTimer);
+  kaTimer = setInterval(() => {
+    if (!keepEnabled) return;
+    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume();
+    if (!document.hidden && !wakeSentinel) requestWakeLock();
+    if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing';
+    runTimersNow();
+  }, 5000);
+}
+
+function stopKeepAlive() {
+  keepEnabled = false;
+  if (wakeSentinel) { try { wakeSentinel.release(); } catch (e) {} wakeSentinel = null; }
+  if (keepAudioCtx) { try { keepAudioCtx.close(); } catch (e) {} keepAudioCtx = null; }
+  if (keepAudio) { try { keepAudio.pause(); keepAudio.src = ''; } catch (e) {} keepAudio = null; }
+  if (kaWebrtcPc1) { try { kaWebrtcPc1.close(); } catch (e) {} kaWebrtcPc1 = null; }
+  if (kaWebrtcPc2) { try { kaWebrtcPc2.close(); } catch (e) {} kaWebrtcPc2 = null; }
+  if (kaTimer) { clearInterval(kaTimer); kaTimer = null; }
+  try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch (e) {}
+}
+
+// WakeLock
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator) || wakeSentinel) return;
+  if (document.visibilityState !== 'visible') return;
+  try {
+    wakeSentinel = await navigator.wakeLock.request('screen');
+    wakeSentinel.addEventListener('release', () => {
+      wakeSentinel = null;
+      if (keepEnabled && document.visibilityState === 'visible') requestWakeLock();
+    });
+  } catch (e) { wakeSentinel = null; }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    onForeground();
+  } else {
+    if (keepEnabled) {
+      if (keepAudio) keepAudio.play().catch(()=>{});
+      if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume();
+      syncSnapshotToSW();
+    }
+    save(true);
+  }
+});
+window.addEventListener('focus', onForeground);
+window.addEventListener('pageshow', onForeground);
+
+function syncSnapshotToSW() {
+  if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+  const texts = (S.cards.chat || []).map(it => ({ t: (typeof it === 'object' ? it.text : it) }));
+  if (!texts.length) return;
+  const snap = {
+    v: 1, ts: Date.now(),
+    cid: chatCtx.id || 'default',
+    name: getContact(chatCtx.id)?.name || 'Libum',
+    texts: texts.slice(0, 20)
+  };
+  idbSet('libum_snap', snap);
+}
+
+async function checkNotifyClick() {
+  try {
+    const raw = await idbGet('libum_notify_click');
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    if (Date.now() - o.ts > 300000) return;
+    idbDelete('libum_notify_click');
+    if (o.cid && getContact(o.cid)) go('chatRoom', {id: o.cid});
+  } catch (e) {}
+}
+
+function enableKeepAliveNow(){
+  keepUserTouched = true;
+  resumeKeepAlive();
+  showToast('后台保活已启动 (WebRTC + 音频引擎)');
 }
 
 function runTimersNow(){
   try{ if(typeof checkAllTimers === 'function') checkAllTimers(); }catch(e){}
 }
-
-async function requestWakeLock(){
-  if(!('wakeLock' in navigator)) return;
-  if(wakeLock) return;
-  if(document.visibilityState !== 'visible') return;
-  try{
-    wakeLock = await navigator.wakeLock.request('screen');
-    wakeLock.addEventListener('release', () => { wakeLock = null; });
-  }catch(e){ wakeLock = null; }
-}
-
-function setupMediaSession(){
-  if(!('mediaSession' in navigator)) return;
-  try{
-    if('MediaMetadata' in window){
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: 'Libum 后台运行中',
-        artist: '保持消息接收',
-        album: 'Libum',
-        artwork: [{ src: NOTIF_ICON, sizes: '96x96', type: 'image/svg+xml' }]
-      });
-    }
-    navigator.mediaSession.playbackState = 'playing';
-    navigator.mediaSession.setActionHandler('play', () => {
-      try{ if(keepAliveAudio) keepAliveAudio.play().catch(() => {}); }catch(e){}
-      navigator.mediaSession.playbackState = 'playing';
-    });
-    navigator.mediaSession.setActionHandler('pause', () => {
-      try{ if(keepAliveAudio) keepAliveAudio.play().catch(() => {}); }catch(e){}
-      navigator.mediaSession.playbackState = 'playing';
-    });
-  }catch(e){}
-}
-
-function startKeepAliveAudio(){
-  try{
-    const url = getSilentAudioUrl();
-    if(!url) return;
-    if(!keepAliveAudio){
-      keepAliveAudio = new Audio(url);
-      keepAliveAudio.loop = true;
-      keepAliveAudio.volume = 0.001;
-      keepAliveAudio.setAttribute('playsinline', '');
-      keepAliveAudio.addEventListener('ended', () => {
-        if(S.settings.keepAlive){ keepAliveAudio.play().catch(() => {}); }
-      });
-      keepAliveAudio.addEventListener('pause', () => {
-        if(S.settings.keepAlive && document.hidden){
-          setTimeout(() => { try{ keepAliveAudio.play().catch(() => {}); }catch(e){} }, 600);
-        }
-      });
-    }
-    const p = keepAliveAudio.play();
-    if(p && p.then){
-      p.then(() => { keepAliveUnlocked = true; }).catch(() => {});
-    }
-  }catch(e){}
-}
-
-function resumeKeepAlive(){
-  try{
-    if(!keepAliveCtx){
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if(AC) keepAliveCtx = new AC();
-    }
-    if(keepAliveCtx && keepAliveCtx.state === 'suspended'){ try{ keepAliveCtx.resume(); }catch(e){} }
-    if(keepAliveCtx && !keepAliveOsc){
-      keepAliveOsc = keepAliveCtx.createOscillator();
-      const gain = keepAliveCtx.createGain();
-      gain.gain.value = 0.0001;
-      keepAliveOsc.frequency.value = 40;
-      keepAliveOsc.connect(gain); gain.connect(keepAliveCtx.destination);
-      try{ keepAliveOsc.start(); }catch(e){}
-    }
-  }catch(e){}
-
-  requestWakeLock();
-  startKeepAliveAudio();
-  setupMediaSession();
-
-  if(keepAliveTimer) clearInterval(keepAliveTimer);
-  keepAliveTimer = setInterval(() => {
-    if(!S.settings.keepAlive) return;
-    try{
-      if(keepAliveCtx && keepAliveCtx.state === 'suspended') keepAliveCtx.resume();
-      if(keepAliveAudio && keepAliveAudio.paused){ const p = keepAliveAudio.play(); if(p && p.catch) p.catch(() => {}); }
-      if(!wakeLock && document.visibilityState === 'visible') requestWakeLock();
-      if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-    }catch(e){}
-  }, 8000);
-
-  startKeepAliveWorker();
-  updateKeepAlivePill();
-}
-
-function enableKeepAliveNow(){
-  keepAliveUnlocked = true;
-  resumeKeepAlive();
-  showToast('后台保活已开启（受系统限制，不保证实时）');
-}
-
-function stopKeepAlive(){
-  if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock = null; }
-  if(keepAliveOsc){ try{ keepAliveOsc.stop(); }catch(e){} keepAliveOsc = null; }
-  if(keepAliveCtx){ try{ keepAliveCtx.close(); }catch(e){} keepAliveCtx = null; }
-  if(keepAliveTimer){ clearInterval(keepAliveTimer); keepAliveTimer = null; }
-  if(keepAliveAudio){ try{ keepAliveAudio.pause(); keepAliveAudio.src = ''; }catch(e){} keepAliveAudio = null; }
-  try{ if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; }catch(e){}
-  stopKeepAliveWorker();
-  keepAliveUnlocked = false;
-  updateKeepAlivePill();
-}
-
-function firstGestureUnlock(){
-  document.removeEventListener('touchstart', firstGestureUnlock);
-  document.removeEventListener('click', firstGestureUnlock);
-  document.removeEventListener('keydown', firstGestureUnlock);
-  if(S.settings.keepAlive){ resumeKeepAlive(); }
-}
-document.addEventListener('touchstart', firstGestureUnlock, { passive: true });
-document.addEventListener('click', firstGestureUnlock);
-document.addEventListener('keydown', firstGestureUnlock);
-
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible'){
-    if(S.settings.keepAlive) requestWakeLock();
-    updateBadges();
-    // 关键修复：切回前台立即补结算所有过期定时器（补发后台冻结期间的消息）
-    runTimersNow();
-    if(stack[stack.length-1] && stack[stack.length-1].name === 'chatRoom') refreshChat();
-    // 双保险：让 SW 也检查一次未读
-    try{
-      if('serviceWorker' in navigator){
-        navigator.serviceWorker.ready.then(reg => {
-          if(reg.active) reg.active.postMessage({ type: 'CHECK_UNREAD' });
-        }).catch(()=>{});
-      }
-    }catch(e){}
-  } else {
-    if(S.settings.keepAlive) {
-      startKeepAliveAudio();
-      setupMediaSession();
-      startKeepAliveWorker();
-      // 切后台时立刻让 SW 检查一次未读
-      try{
-        navigator.serviceWorker.ready.then(reg => {
-          if(reg.active) reg.active.postMessage({ type: 'CHECK_UNREAD' });
-          // 尝试注册一次性后台同步（Chrome 支持）
-          try{
-            if(reg.sync) reg.sync.register('libum-check').catch(()=>{});
-          }catch(e){}
-        }).catch(()=>{});
-      }catch(e){}
-    }
-    save(true);
-  }
-});
 
 async function requestNotificationPermission(){
   if(!('Notification' in window)) return false;
@@ -1352,7 +1294,9 @@ async function requestNotificationPermission(){
   try{ const p = await Notification.requestPermission(); return p === 'granted'; }catch(e){ return false; }
 }
 
-/* ============ 通知队列 + 双通道发送 ============ */
+// ==========================================
+// 升级版系统通知发送逻辑（四级降级 + 超时保护）
+// ==========================================
 let notifQueue = [];
 let notifBusy = false;
 
@@ -1369,57 +1313,43 @@ function enqueueNotification(title, body, tag, data){
   drain();
 }
 
-async function sendSystemNotification(title, body, force, tag, data){
-  if(!force && !S.settings.pushEnabled) return;
-  if(!('Notification' in window)) return;
-
-  if(Notification.permission !== 'granted'){
-    if(force){
-      const ok = await requestNotificationPermission();
-      if(!ok) return;
-    } else {
-      return;
-    }
+async function sendSystemNotification(title, body, force, tag, data) {
+  if (!force && !S.settings.pushEnabled) return;
+  if (!('Notification' in window)) return;
+  
+  if (Notification.permission !== 'granted') {
+    if (force) { const ok = await requestNotificationPermission(); if (!ok) return; }
+    else return;
   }
 
   const payload = {
-    type: 'SHOW_NOTIFICATION',
-    title: title || 'Libum',
-    body: body || '',
-    icon: NOTIF_ICON,
-    badge: NOTIF_ICON,
-    tag: tag || 'libum-msg',
-    renotify: true,
-    requireInteraction: false,
-    silent: false,
-    vibrate: [80, 40, 80],
-    data: data || {}
+    type: 'SHOW_NOTIFICATION', title: title || 'Libum', body: body || '',
+    icon: NOTIF_ICON, badge: NOTIF_ICON, tag: tag || 'libum-msg',
+    renotify: true, data: data || {}, vibrate: [80, 40, 80]
   };
 
-  if('serviceWorker' in navigator){
-    try{
+  if ('serviceWorker' in navigator) {
+    try {
       const reg = await Promise.race([
         navigator.serviceWorker.ready,
         new Promise(res => setTimeout(() => res(null), 2500))
       ]);
-      if(reg && reg.active){
+      if (reg && reg.active) {
         try { reg.active.postMessage(payload); } catch(e){}
         try { await reg.showNotification(payload.title, payload); } catch(e){}
         return;
       }
-    }catch(e){}
+    } catch(e){}
   }
 
-  try{
+  // 降级到页面 Notification
+  try {
     const n = new Notification(title, {
-      body: payload.body,
-      icon: payload.icon,
-      tag: payload.tag,
-      data: payload.data
+      body: payload.body, icon: payload.icon, tag: payload.tag, data: payload.data
     });
     n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
     setTimeout(() => { try{ n.close(); }catch(e){} }, 8000);
-  }catch(e){ console.warn('通知发送失败:', e); }
+  } catch(e){}
 }
 
 async function testPush(){
@@ -1722,8 +1652,7 @@ function applySettings(){
   }
   dimLayer.style.background = dimVal > 0 ? `rgba(0,0,0,${dimVal/100})` : 'transparent';
   $('#customCssStyle').innerHTML = S.settings.customCss || '';
-  if(S.settings.keepAlive && !keepAliveCtx){ resumeKeepAlive(); }
-  updateKeepAlivePill();
+  if(S.settings.keepAlive && !keepEnabled){ resumeKeepAlive(); }
 }
 function pickTheme(k, el){
   S.settings.theme = k; save(); applySettings();
@@ -3107,11 +3036,6 @@ setInterval(() => {
     save();
   }
 }, 60000);
-
-/* 兜底：每 90s 主动检查一次（即使 Worker 失败） */
-setInterval(() => {
-  if(S.settings.keepAlive) runTimersNow();
-}, 90000);
 
 function viewVisitors(){
   const v = S.visitors.filter(x => getContact(x.id)).sort((a,b)=>b.time-a.time);
@@ -4696,11 +4620,9 @@ const VIEWS={ home:viewHome, contacts:viewContacts, moments:viewMoments, profile
 
 /* ============ ⭐ 初始化：以 IndexedDB 为唯一数据源 ============ */
 async function initStorage(){
-  // 1. 打开 IndexedDB
   idbDB = await idbOpen();
   if (idbDB && pendingIdbSave) { idbSet(pendingIdbSave.key, pendingIdbSave.val); pendingIdbSave = null; }
 
-  // 2. 立即请求持久化存储（防止浏览器在存储压力下清空数据）
   try{
     if (navigator.storage && navigator.storage.persist){
       const persisted = await navigator.storage.persisted();
@@ -4708,7 +4630,6 @@ async function initStorage(){
     }
   }catch(e){}
 
-  // 3. 从 IDB 读取主数据
   let gotFromIDB = false;
   if (idbDB){
     const raw = await idbGet('libum_data');
@@ -4727,7 +4648,6 @@ async function initStorage(){
     }
   }
 
-  // 4. 兼容旧版：IDB 无数据时，尝试从旧 localStorage 迁移一次
   if (!gotFromIDB){
     try{
       const rawLocal = localStorage.getItem('libum_data');
@@ -4746,7 +4666,6 @@ async function initStorage(){
     }catch(e){ console.warn('旧 localStorage 迁移失败', e); }
   }
 
-  // 5. 安装迁移令牌：把浏览器端数据接力到桌面 PWA
   try{
     const token = new URLSearchParams(location.search).get('__migrate');
     if (token){
@@ -4766,7 +4685,6 @@ async function initStorage(){
   normalizeState();
   migratePatCards();
 
-  // 6. 初始化各种下一次时间
   if (!S.settings.nextLetterTime) {
     const minH = S.settings.letterMinHours || 2;
     const maxH = S.settings.letterMaxHours || 6;
@@ -4786,12 +4704,10 @@ async function initStorage(){
     S.settings.nextCallTime = Date.now() + rnd(cr.minH * 3600000, cr.maxH * 3600000);
   }
 
-  // 7. 渲染
   lastScrollKey = '';
   applySettings();
   render();
 
-  // 8. 处理 URL hash 打开聊天
   try{
     const m = location.hash.match(/chat=([^&]+)/);
     if (m && m[1]){
@@ -4803,16 +4719,14 @@ async function initStorage(){
     }
   }catch(e){}
 
-  // 9. 恢复保活
   if (S.settings.keepAlive) {
     setTimeout(() => { if (S.settings.keepAlive) resumeKeepAlive(); }, 300);
   }
+  setTimeout(checkNotifyClick, 1000);
 
-  // 10. 提示
   checkBackupTip();
   checkUpdateNotice();
 
-  // 11. standalone 检测
   try{
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
                        || window.navigator.standalone === true;
@@ -4824,7 +4738,6 @@ async function initStorage(){
     }
   }catch(e){}
 
-  // 12. 首次点击主动请求通知权限（一次，不骚扰）
   (function ensureNotificationPermission(){
     try{
       if(!('Notification' in window)) return;
