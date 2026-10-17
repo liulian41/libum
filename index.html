@@ -623,16 +623,6 @@ window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; })
 
 (function setupPWA(){
   try{
-    const iconSvg = (size) => {
-      const s = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 512 512">'
-        + '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
-        + '<stop offset="0" stop-color="#7f8ff5"/><stop offset="0.45" stop-color="#a58cf0"/><stop offset="1" stop-color="#ffb3c6"/>'
-        + '</linearGradient></defs>'
-        + '<rect width="512" height="512" rx="116" fill="url(#g)"/>'
-        + '<path d="M256 118c-56 0-101 45-101 101v74c0 56 45 101 101 101s101-45 101-101v-74c0-56-45-101-101-101zm0 46c30 0 55 25 55 55v74c0 30-25 55-55 55s-55-25-55-55v-74c0-30 25-55 55-55z" fill="#fff" fill-opacity="0.96"/>'
-        + '</svg>';
-      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
-    };
     let startUrl = location.href.split('#')[0];
     if (location.protocol === 'file:') startUrl = './';
     const scopeUrl = startUrl.replace(/[^\/]*$/, '');
@@ -648,9 +638,9 @@ window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; })
       background_color: '#a58cf0',
       theme_color: '#a58cf0',
       icons: [
-        { src: iconSvg(192), sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
-        { src: iconSvg(512), sizes: '512x512', type: 'image/svg+xml', purpose: 'any' },
-        { src: iconSvg(512), sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' }
+        { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
       ]
     };
     const link = document.getElementById('manifestLink');
