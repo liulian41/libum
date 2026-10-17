@@ -496,6 +496,20 @@ window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; })
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(() => {
     console.log('Service Worker 注册成功');
+    
+    // ⭐ 增加周期性后台同步，让支持该特性的安卓浏览器能后台唤醒检查未读
+    if ('PeriodicSyncManager' in window) {
+      navigator.serviceWorker.ready.then(async (registration) => {
+        try {
+          const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+          if (status.state === 'granted') {
+            await registration.periodicSync.register('libum-check', {
+              minInterval: 15 * 60 * 1000
+            });
+          }
+        } catch (e) { console.log('PeriodicSync 注册失败或未授权'); }
+      });
+    }
   }).catch(err => {
     console.log('Service Worker 注册失败:', err);
   });
@@ -522,7 +536,10 @@ const UPDATE_LOG = {
     date: '2026-10-17',
     items: [
       '🔗 修复微信/QQ内置浏览器下无法解析网易云短链接的问题，现在会给出明确的操作提示',
-      '🎛️ 朋友圈内容设置新增「拼接条数」和「回复条数」范围自定义，不再固定 1~2 条'
+      '🎛️ 朋友圈内容设置新增「拼接条数」和「回复条数」范围自定义，不再固定 1~2 条',
+      '🎵 修复网易云歌单导入后无法播放（提示会员歌曲）的问题，统一使用外链',
+      '🖼️ 修复退出再进后图片、美化、头像等资源全部丢失的严重问题',
+      '📡 修复切回前台时才发消息的问题，现在切回会立即结算后台延迟消息'
     ]
   },
   '2.1.6': {
@@ -764,7 +781,6 @@ function normalizeState(){
   if(!Array.isArray(S.settings.playHistory)) S.settings.playHistory = [];
   if(S.settings.mjIncomingCall !== undefined) delete S.settings.mjIncomingCall;
   if(S.settings.netease !== undefined) delete S.settings.netease;
-  // ⭐ 朋友圈内容开关默认值
   if(S.settings.mjMomentCombine === undefined) S.settings.mjMomentCombine = true;
   if(S.settings.mjMomentCombineMin == null) S.settings.mjMomentCombineMin = 2;
   if(S.settings.mjMomentCombineMax == null) S.settings.mjMomentCombineMax = 3;
@@ -881,12 +897,14 @@ function doSave(){
     idbSet('libum_data', full);
   } catch(e){ console.warn('IDB 写入失败', e); }
 
+  // ⭐ 修复：只用 localStorage 记录最后一次保存时间，防止旧数据冲突，图片数据完全依赖 IDB
   try {
-    const light = JSON.stringify({ v: 2, savedAt: S.__savedAt, state: packed });
-    localStorage.setItem('libum_data', light);
-  } catch(e){
-    console.warn('localStorage 写入失败（配额）', e);
-  }
+    localStorage.setItem('libum_last_saved', S.__savedAt.toString());
+    // 移除旧的占空间完整数据，避免 localStorage 爆满
+    if (localStorage.getItem('libum_data')) {
+      localStorage.removeItem('libum_data');
+    }
+  } catch(e){}
 }
 
 function save(immediate){
@@ -899,7 +917,6 @@ function save(immediate){
   saveTimer = setTimeout(() => { saveTimer = null; doSave(); }, 120);
 }
 
-document.addEventListener('visibilitychange', () => { if (document.hidden) save(true); });
 window.addEventListener('pagehide', () => { save(true); });
 
 function requestPersistentStorage(){
@@ -1115,15 +1132,19 @@ document.addEventListener('click', firstGestureUnlock);
 document.addEventListener('keydown', firstGestureUnlock);
 
 document.addEventListener('visibilitychange', () => {
-  if(!S.settings.keepAlive) return;
   if(document.visibilityState === 'visible'){
-    requestWakeLock();
+    if(S.settings.keepAlive) requestWakeLock();
     updateBadges();
+    // ⭐ 修复：切回前台时立即强制结算所有定时器，补发后台错过的消息
+    try { if(typeof checkAllTimers === 'function') checkAllTimers(); } catch(e){}
     if(stack[stack.length-1] && stack[stack.length-1].name === 'chatRoom') refreshChat();
   } else {
-    startKeepAliveAudio();
-    setupMediaSession();
-    startKeepAliveWorker();
+    if(S.settings.keepAlive) {
+      startKeepAliveAudio();
+      setupMediaSession();
+      startKeepAliveWorker();
+    }
+    save(true);
   }
 });
 
@@ -1702,7 +1723,6 @@ function openFullSettings() {
       if(S.settings.keepAlive) enableKeepAliveNow();
       else stopKeepAlive();
     };
-    // ⭐ 朋友圈内容开关（即时生效）
     const mjc = overlay.querySelector('#fsMjCombine');
     if (mjc) mjc.onclick = function() { this.classList.toggle('on'); S.settings.mjMomentCombine = this.classList.contains('on'); save(); };
     const mjr = overlay.querySelector('#fsMjMultiReply');
@@ -2528,9 +2548,6 @@ function delMoment(id){S.moments=S.moments.filter(x=>x.id!==id);save();render();
 function changeCover(){pickImage(d=>{S.user.cover=d;save();render();});}
 function changeAvatar(){pickImage(d=>{S.user.avatar=d;save();render();});}
 
-/* ============================================================
-   ⭐ 朋友圈评论支持多字卡拼接（受 mjMomentMultiReply 开关控制）
-   ============================================================ */
 function scheduleMomentReply(m){
   if(!m || m.authorId === 'me') return;
   if(Math.random() > 0.7) return;
@@ -2592,9 +2609,6 @@ function openPostMoment(){
   };
 }
 
-/* ============================================================
-   ⭐ 对方发朋友圈支持多字卡 + 配图（受三个开关控制）
-   ============================================================ */
 function scheduleMjMomentReaction(){
   if(!S.contacts.length) return;
   const contacts = S.contacts.slice();
@@ -2628,9 +2642,6 @@ function scheduleMjMomentReaction(){
   }, delay);
 }
 
-/* ============================================================
-   ⭐ 对方发朋友圈统一生成函数（受三个开关控制）
-   ============================================================ */
 function generateMjMoment(c, now){
   const chatPool = (S.cards.chat || []).map(it => (typeof it === 'object' ? it.text : it)).filter(Boolean);
   let text = '';
@@ -2917,9 +2928,6 @@ function openLetter(id){
   openModal(`<div class="modal-title">${esc(l.title||'无题')}</div><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><img src="${avatarSrc(c.avatar||'',c.name||'?')}" style="width:36px;height:36px;border-radius:12px;object-fit:cover"><div><div style="font-size:13px;font-weight:600">${l.from==='me'?'寄给 ':'来自 '}${esc(c.name||'对方')}</div><div style="font-size:11px;opacity:.6">${timeAgo(l.time)}</div></div></div><div class="letter-body" style="font-size:13.5px;line-height:1.75;white-space:pre-wrap;">${esc(l.body)}</div><div class="modal-actions">${l.from==='mj'?`<button class="btn" onclick="closeModal();openWriteLetter()">回信</button>`:''}<button class="btn ghost" onclick="closeModal()">关闭</button></div>`);
 }
 
-/* ============================================================
-   ⭐ 音乐模块
-   ============================================================ */
 const PLAY_MODES = { 
   list: { label: '列表循环', icon: 'loop' }, 
   single: { label: '单曲循环', icon: 'loopSingle' }, 
@@ -3035,27 +3043,20 @@ function addSongAndPlay(song){
   return ns.id;
 }
 
-/* ============================================================
-   ⭐ 网易云歌单解析增强（异步版本，支持 163cn.tv 短链接）
-   ============================================================ */
 async function parseNeteaseId(input){
   if(!input) return '';
   let s = String(input).trim();
 
-  // 1. 提取 URL 部分，去除前后中文文本
   const urlMatch = s.match(/(https?:\/\/[^\s]+)/);
   if (urlMatch) s = urlMatch[1];
 
-  // 2. 如果是纯数字，直接返回
   if(/^\d+$/.test(s)) return s;
 
-  // 3. ⭐ 短链接处理：163cn.tv / 163cn.link 需要先跟随重定向
   if(/163cn\.(tv|link)\//i.test(s)){
     try{
       const redirectRes = await fetchWithTimeout(s, 8000, { method: 'HEAD', redirect: 'follow' });
       if(redirectRes && redirectRes.url && redirectRes.url !== s) s = redirectRes.url;
     }catch(e){
-      // HEAD 失败时降级用 GET
       try{
         const getRes = await fetchWithTimeout(s, 8000, { method: 'GET', redirect: 'follow' });
         if(getRes && getRes.url && getRes.url !== s) s = getRes.url;
@@ -3063,19 +3064,15 @@ async function parseNeteaseId(input){
     }
   }
 
-  // 4. 匹配 URL 参数中的 id=数字
   let m = s.match(/[?&#]id=(\d+)/);
   if (m) return m[1];
 
-  // 5. 匹配 playlist/数字 格式
   m = s.match(/playlist\/(\d+)/);
   if (m) return m[1];
 
-  // 6. 匹配 discover/toplist/数字 格式
   m = s.match(/discover\/toplist\/(\d+)/);
   if (m) return m[1];
 
-  // 7. 兜底：匹配连续的 6 位以上数字
   m = s.match(/(\d{6,})/);
   if (m) return m[1];
 
@@ -3090,7 +3087,8 @@ function metingToSong(item){
   const name = item.name || item.title || '未知歌曲';
   const artist = item.artist || item.author || '未知歌手';
   const cover = item.pic || item.cover || '';
-  const url = item.url || `https://music.163.com/song/media/outer/url?id=${id}.mp3`;
+  // ⭐ 修复：强制使用网易云外链播放地址，避免 Meting API 返回的 url 有时效性或 VIP 限制
+  const url = `https://music.163.com/song/media/outer/url?id=${id}.mp3`;
   return { id, name, artist, cover, url };
 }
 
@@ -4117,18 +4115,15 @@ if (S.settings.keepAlive) {
     if (d.state) { state = unpackAssets(d.state, d.assets); savedAt = d.savedAt || 0; }
     else { state = d; savedAt = d.__savedAt || 0; }
 
-    if (savedAt && S.__savedAt && savedAt < S.__savedAt) {
-      console.log('[Libum] IDB 数据比内存旧，跳过恢复');
-      return;
+    if (savedAt) {
+      S = deepMerge(clone(DEFAULT_STATE), state);
+      S.__savedAt = savedAt || Date.now();
+      normalizeState();
+      lastScrollKey = '';
+      applySettings();
+      render();
+      console.log('已从 IndexedDB 恢复完整数据');
     }
-
-    S = deepMerge(clone(DEFAULT_STATE), state);
-    S.__savedAt = savedAt;
-    normalizeState();
-    lastScrollKey = '';
-    applySettings();
-    render();
-    console.log('已从 IndexedDB 恢复完整数据');
   }catch(e){ console.warn('IDB 恢复失败', e); }
 })();
 
