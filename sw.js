@@ -7,8 +7,29 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(self.clients.claim());
+// ------------------------------------------------------------
+// 激活：接管页面 + 健壮注册周期同步
+// ------------------------------------------------------------
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    try { await self.clients.claim(); } catch (e) {}
+
+    // 周期后台同步（仅部分浏览器支持，且受参与度门槛限制）
+    try {
+      if ('periodicSync' in self.registration) {
+        try {
+          const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+          if (status.state === 'granted') {
+            await self.registration.periodicSync.register('libum-check', {
+              minInterval: 15 * 60 * 1000
+            });
+          }
+        } catch (e) {
+          console.log('[SW] PeriodicSync 注册失败或未授权:', e);
+        }
+      }
+    } catch (e) {}
+  })());
 });
 
 // ------------------------------------------------------------
@@ -49,8 +70,33 @@ self.addEventListener('periodicsync', (event) => {
   }
 });
 
+// ------------------------------------------------------------
+// 一次性后台同步：切后台时注册，浏览器恢复网络/合适时机唤醒
+// ------------------------------------------------------------
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'libum-check') {
+    event.waitUntil(checkUnreadAndNotify());
+  }
+});
+
+// 通知节流：避免周期唤醒时重复轰炸同一条提醒
+let __lastNotifTime = 0;
+
+function canNotify() {
+  try {
+    if (!('Notification' in self)) return false;
+    return Notification.permission === 'granted';
+  } catch (e) { return false; }
+}
+
 async function checkUnreadAndNotify() {
   try {
+    if (!canNotify()) return;
+
+    // 5 分钟内不重复提醒
+    const now = Date.now();
+    if (now - __lastNotifTime < 5 * 60 * 1000) return;
+
     const db = await openLibumDB();
     if (!db) return;
     const state = await readLibumState(db);
@@ -71,6 +117,7 @@ async function checkUnreadAndNotify() {
       }
     }
     if (unreadCount > 0 && lastContact) {
+      __lastNotifTime = now;
       await self.registration.showNotification('Libum 有新消息', {
         body: `${lastContact.name} 给你发来了消息`,
         tag: 'libum-periodic',
@@ -88,6 +135,11 @@ function openLibumDB() {
   return new Promise((resolve) => {
     try {
       const req = indexedDB.open('libum_store', 1);
+      req.onupgradeneeded = () => {
+        try {
+          if (!req.result.objectStoreNames.contains('kv')) req.result.createObjectStore('kv');
+        } catch (e) {}
+      };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => resolve(null);
       setTimeout(() => resolve(null), 3000);
@@ -104,7 +156,22 @@ function readLibumState(db) {
         if (!r.result) return resolve(null);
         try {
           const d = JSON.parse(r.result);
-          resolve(d.state || d);
+          if (d && d.state) {
+            // v2 格式：{ state, assets, savedAt }，assets 这里不展开，只读 unread/contacts
+            const packed = d.state;
+            const walk = (v) => {
+              if (Array.isArray(v)) return v.map(walk);
+              if (v && typeof v === 'object') {
+                const o = {};
+                for (const k in v) o[k] = walk(v[k]);
+                return o;
+              }
+              return v;
+            };
+            resolve(walk(packed));
+          } else {
+            resolve(d.state || d);
+          }
         } catch (e) { resolve(null); }
       };
       r.onerror = () => resolve(null);

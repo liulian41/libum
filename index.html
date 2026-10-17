@@ -611,11 +611,34 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
 <style id="customCssStyle"></style>
 
 <script>
+/* ============ 工具：迁移令牌编解码 ============ */
+function encodeToken(str){
+  try{
+    const bytes = new TextEncoder().encode(str);
+    let bin = '';
+    const chunk = 0x8000;
+    for(let i = 0; i < bytes.length; i += chunk){
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(bin);
+  }catch(e){ return ''; }
+}
+function decodeToken(t){
+  try{
+    const bin = atob(t);
+    const bytes = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }catch(e){ return ''; }
+}
+
 /* ============ PWA：manifest 动态注入 + 安装支持 ============ */
 let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
+  // 安装前把当前数据编码进 manifest 的 start_url，安装后由 PWA 首次启动读取
+  try { injectMigrateToken(); } catch(err) {}
 });
 window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; });
 
@@ -657,6 +680,24 @@ window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; })
     }
   }catch(e){ console.warn('manifest 注入失败', e); }
 })();
+
+function injectMigrateToken(){
+  try{
+    const link = document.getElementById('manifestLink');
+    if(!link) return;
+    const href = link.getAttribute('href') || '';
+    if(!href.startsWith('data:application/manifest+json')) return;
+    const idx = href.indexOf(',');
+    if(idx < 0) return;
+    const manifest = JSON.parse(decodeURIComponent(href.slice(idx + 1)));
+    const token = encodeToken(JSON.stringify(S));
+    if(!token) return;
+    let base = (manifest.start_url || './').split('?')[0];
+    if(!base || base === './' || base === '.') base = location.href.split('#')[0].split('?')[0];
+    manifest.start_url = base + (base.includes('?') ? '&' : '?') + '__migrate=' + encodeURIComponent(token);
+    link.setAttribute('href', 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest)));
+  }catch(e){ console.warn('迁移令牌注入失败', e); }
+}
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(() => {
@@ -706,7 +747,8 @@ const UPDATE_LOG = {
       '🎬 一起看新增全屏按钮，视频容器支持自适应（抖音竖屏 / B站横屏），并增加全屏失败模拟兜底',
       '📱 修复浏览器拦截全屏的问题，利用 CSS 强制横屏技术，竖着拿手机也能获得完美的横屏视觉体验',
       '🔔 通知链路重构：SW 双通道发送 + 队列错峰 + 权限主动请求，系统提醒不再丢',
-      '🔋 后台保活增强：Worker 每 4s 结算定时器 + 切后台主动 CHECK_UNREAD + 90s 兜底心跳'
+      '🔋 后台保活增强：Worker 每 4s 结算定时器 + 切后台主动 CHECK_UNREAD + 90s 兜底心跳',
+      '💾 存储修复：安装到桌面后数据丢失、浏览器数据被清空的问题已修复（IndexedDB 单一数据源 + 安装迁移令牌 + 持久化存储请求）'
     ]
   }
 };
@@ -869,7 +911,7 @@ function unpackAssets(packed, assets){
   return walk(packed);
 }
 
-let S;
+let S = clone(DEFAULT_STATE);
 
 function normalizeState(){
   if(!S.chatSettings) S.chatSettings = {};
@@ -944,25 +986,8 @@ function normalizeState(){
   if (S.watchTogether.activeRoom === undefined) S.watchTogether.activeRoom = null;
 }
 
-(function loadSync(){
-  let raw = null;
-  try { raw = localStorage.getItem('libum_data'); } catch(e){ raw = null; }
-  if (raw){
-    try {
-      const d = JSON.parse(raw);
-      let state, savedAt = 0;
-      if (d && d.state) { state = unpackAssets(d.state, null); savedAt = d.savedAt || 0; }
-      else { state = d; savedAt = (d && d.__savedAt) || 0; }
-      S = deepMerge(clone(DEFAULT_STATE), state);
-      S.__savedAt = savedAt;
-    } catch(e){ S = clone(DEFAULT_STATE); }
-  } else {
-    S = clone(DEFAULT_STATE);
-  }
-  normalizeState();
-})();
-
-(function migratePatCards(){
+// 拍一拍旧数据迁移（在 initStorage 中调用）
+function migratePatCards(){
   try{
     if(!S.cards) S.cards = {};
     let needSave = false;
@@ -1000,7 +1025,7 @@ function normalizeState(){
     });
     if(needSave) save(true);
   }catch(e){ console.error('拍一拍迁移失败:', e); }
-})();
+}
 
 let idbDB = null;
 let pendingIdbSave = null;
@@ -1051,6 +1076,7 @@ function doSave(){
     idbSet('libum_data', full);
   } catch(e){ console.warn('IDB 写入失败', e); }
 
+  // 清理旧 localStorage 主数据，避免与 IDB 数据不一致
   try {
     localStorage.setItem('libum_last_saved', S.__savedAt.toString());
     if (localStorage.getItem('libum_data')) {
@@ -1132,7 +1158,7 @@ function startKeepAliveWorker(){
     const blob = new Blob([code], { type: 'application/javascript' });
     keepAliveWorkerUrl = URL.createObjectURL(blob);
     keepAliveWorker = new Worker(keepAliveWorkerUrl);
-    // 关键修复：Worker 每 4s tick 时直接结算定时器，避免 setInterval 被节流
+    // Worker 每 4s tick 时结算定时器；后台被冻结时依赖切回前台补结算
     keepAliveWorker.onmessage = function(e){
       if(!S.settings.keepAlive) return;
       if(e.data && e.data.type === 'tick'){
@@ -1202,7 +1228,6 @@ function startKeepAliveAudio(){
     if(!keepAliveAudio){
       keepAliveAudio = new Audio(url);
       keepAliveAudio.loop = true;
-      // 关键修复：0.01 容易被浏览器判定静音，降到 0.001 并配合 Worker 每 4s 重播
       keepAliveAudio.volume = 0.001;
       keepAliveAudio.setAttribute('playsinline', '');
       keepAliveAudio.addEventListener('ended', () => {
@@ -1260,7 +1285,7 @@ function resumeKeepAlive(){
 function enableKeepAliveNow(){
   keepAliveUnlocked = true;
   resumeKeepAlive();
-  showToast('后台保活已开启');
+  showToast('后台保活已开启（受系统限制，不保证实时）');
 }
 
 function stopKeepAlive(){
@@ -1289,17 +1314,30 @@ document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){
     if(S.settings.keepAlive) requestWakeLock();
     updateBadges();
-    try { if(typeof checkAllTimers === 'function') checkAllTimers(); } catch(e){}
+    // 关键修复：切回前台立即补结算所有过期定时器（补发后台冻结期间的消息）
+    runTimersNow();
     if(stack[stack.length-1] && stack[stack.length-1].name === 'chatRoom') refreshChat();
+    // 双保险：让 SW 也检查一次未读
+    try{
+      if('serviceWorker' in navigator){
+        navigator.serviceWorker.ready.then(reg => {
+          if(reg.active) reg.active.postMessage({ type: 'CHECK_UNREAD' });
+        }).catch(()=>{});
+      }
+    }catch(e){}
   } else {
     if(S.settings.keepAlive) {
       startKeepAliveAudio();
       setupMediaSession();
       startKeepAliveWorker();
-      // 关键修复：切后台时立刻让 SW 检查一次未读
+      // 切后台时立刻让 SW 检查一次未读
       try{
         navigator.serviceWorker.ready.then(reg => {
           if(reg.active) reg.active.postMessage({ type: 'CHECK_UNREAD' });
+          // 尝试注册一次性后台同步（Chrome 支持）
+          try{
+            if(reg.sync) reg.sync.register('libum-check').catch(()=>{});
+          }catch(e){}
         }).catch(()=>{});
       }catch(e){}
     }
@@ -1314,7 +1352,7 @@ async function requestNotificationPermission(){
   try{ const p = await Notification.requestPermission(); return p === 'granted'; }catch(e){ return false; }
 }
 
-/* ============ 通知队列 + 双通道发送（核心修复） ============ */
+/* ============ 通知队列 + 双通道发送 ============ */
 let notifQueue = [];
 let notifBusy = false;
 
@@ -1326,7 +1364,7 @@ function enqueueNotification(title, body, tag, data){
     if(!notifQueue.length){ notifBusy = false; return; }
     const item = notifQueue.shift();
     sendSystemNotification(item.title, item.body, false, item.tag, item.data);
-    setTimeout(drain, 320); // 320ms 错峰，避免系统合并
+    setTimeout(drain, 320);
   };
   drain();
 }
@@ -1358,7 +1396,6 @@ async function sendSystemNotification(title, body, force, tag, data){
     data: data || {}
   };
 
-  // 优先 SW：postMessage + showNotification 双通道
   if('serviceWorker' in navigator){
     try{
       const reg = await Promise.race([
@@ -1373,7 +1410,6 @@ async function sendSystemNotification(title, body, force, tag, data){
     }catch(e){}
   }
 
-  // 回退 new Notification（保留 icon/tag/data）
   try{
     const n = new Notification(title, {
       body: payload.body,
@@ -1606,7 +1642,6 @@ function updateBadges() {
     deskApps[0].querySelector('.badge-dot').classList.toggle('show', hasChatUnread);
     deskApps[3].querySelector('.badge-dot').classList.toggle('show', S.unread.letters > 0);
   }
-  // 应用角标（Chrome/Edge PWA）
   try{
     if('setAppBadge' in navigator){
       const total = Object.values(S.unread.chats || {}).reduce((a,b)=>a+(b||0),0) + (S.unread.moments||0) + (S.unread.letters||0);
@@ -1897,7 +1932,7 @@ function openFullSettings() {
         <div class="set-row" style="flex-direction:column;align-items:flex-start;gap:6px;"><span style="font-size:13px;">金额池（元，逗号分隔）</span><input class="field-input" id="fsRedPacketPool" placeholder="5.20, 13.14, 52, 99" value="${(S.settings.redPacketPool||[]).join(', ')}" style="width:100%;height:38px;margin-bottom:0;font-size:13px;"></div>
       </div>
       <div class="sec-title">后台运行</div>
-      <div class="card-box"><div class="set-row"><span>后台保活</span><div class="switch ${S.settings.keepAlive?'on':''}" id="fsKeepAlive"></div></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">开启后应用在后台尽可能保持活跃（无声音频 + Wake Lock + MediaSession + Worker），有新消息时会推送系统通知。</div></div></div>
+      <div class="card-box"><div class="set-row"><span>后台保活</span><div class="switch ${S.settings.keepAlive?'on':''}" id="fsKeepAlive"></div></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">开启后应用会尝试保持后台连接（无声音频 + Wake Lock + MediaSession + Worker）。<br>受移动系统限制，<b>无法保证</b>完全关闭或长时间后台后仍实时收消息。切回前台时会立即补发。</div></div></div>
       <div class="sec-title">消息推送</div>
       <div class="card-box"><div class="set-row"><span>开启系统通知</span><div class="switch ${S.settings.pushEnabled?'on':''}" id="fsPushEnabled"></div></div><div class="set-row" onclick="testPush()" style="cursor:pointer;"><span>测试推送</span><span class="set-val">发送一条测试通知 ›</span></div></div>
       <div class="sec-title">意见反馈</div>
@@ -2456,12 +2491,10 @@ function pushMsg(cid,msg){
     else if(msg.type === 'quiz') preview = '[问卷]';
     else if(msg.type === 'listenInvite') preview = '[一起听]';
 
-    // 关键修复：只要不在「当前聊天页 + 页面可见」状态，就发系统通知
     const inThisChat = isCurrentChat && !document.hidden;
     if(!inThisChat){
       enqueueNotification(title, preview, 'libum-chat-' + cid, { cid: cid });
     }
-    // 页面可见时弹 heads-up
     if(!document.hidden){
       showHeadsUpNotice(av, title, preview, () => go('chatRoom', {id: cid}));
     }
@@ -2755,7 +2788,6 @@ function momentHTML(m){
 function timeAgo(t){ const d=Date.now()-t; if(d<60000)return '刚刚'; if(d<3600000)return Math.floor(d/60000)+'分钟前'; if(d<86400000)return Math.floor(d/3600000)+'小时前'; const dt=new Date(t); return (dt.getMonth()+1)+'月'+dt.getDate()+'日'; }
 function toggleLike(id){ const m=S.moments.find(x=>x.id===id);if(!m)return; if(m.likes.includes('me'))m.likes=m.likes.filter(x=>x!=='me'); else m.likes.push('me'); save();render(); }
 function delMoment(id){S.moments=S.moments.filter(x=>x.id!==id);save();render();}
-function changeCover(){pickImage(d=>{S.user.cover=d;save();render();});}
 function changeAvatar(){pickImage(d=>{S.user.avatar=d;save();render();});}
 
 function scheduleMomentReply(m){
@@ -3839,6 +3871,7 @@ function toggleCallEnabled(el){
 async function installPWA(){
   if (deferredInstallPrompt){
     try{
+      injectMigrateToken();
       deferredInstallPrompt.prompt();
       const r = await deferredInstallPrompt.userChoice;
       deferredInstallPrompt = null;
@@ -3922,9 +3955,9 @@ function viewProfile(){
       <div class="sec-title">红包设置</div>
       <div class="card-box"><div class="set-row"><span>使用随机金额</span><div class="switch ${st.useRandomAmount?'on':''}" onclick="st.useRandomAmount=!st.useRandomAmount;save();render();"></div></div><div class="set-row" onclick="openRedPacketPoolModal()" style="cursor:pointer;"><span>金额池设置</span><span class="set-val">${(st.redPacketPool||[]).length} 项 ›</span></div></div>
       <div class="sec-title">后台与推送</div>
-      <div class="card-box"><div class="set-row"><span>后台保活</span><div class="switch ${st.keepAlive?'on':''}" id="profileKeepAlive"></div></div><div class="set-row"><span>系统通知推送</span><div class="switch ${st.pushEnabled?'on':''}" onclick="togglePushSwitch(this)"></div></div><div class="set-row" onclick="testPush()" style="cursor:pointer;"><span>测试推送</span><span class="set-val">发送测试通知 ›</span></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.65;">💡 开启后台保活 + 系统通知后，应用切到后台也能持续接收消息并弹出提醒。<br>iOS 需将站点「添加到主屏幕」后保活效果更好。</div></div></div>
+      <div class="card-box"><div class="set-row"><span>后台保活</span><div class="switch ${st.keepAlive?'on':''}" id="profileKeepAlive"></div></div><div class="set-row"><span>系统通知推送</span><div class="switch ${st.pushEnabled?'on':''}" onclick="togglePushSwitch(this)"></div></div><div class="set-row" onclick="testPush()" style="cursor:pointer;"><span>测试推送</span><span class="set-val">发送测试通知 ›</span></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.65;">💡 开启后台保活 + 系统通知后，应用切到后台会尽力保持连接并弹出提醒。<br>受移动系统限制，<b>无法保证</b>完全关闭或长时间后台后仍实时收消息；切回前台会立即补发。<br>iOS 需将站点「添加到主屏幕」后效果更好。</div></div></div>
       <div class="sec-title">应用安装</div>
-      <div class="card-box"><div class="set-row" onclick="installPWA()" style="cursor:pointer;"><span>添加到桌面</span><span class="set-val">${deferredInstallPrompt ? '可立即安装 ›' : '查看安装方法 ›'}</span></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">Edge / Chrome 需通过 https 或 localhost 访问才能安装为应用。</div></div></div>
+      <div class="card-box"><div class="set-row" onclick="installPWA()" style="cursor:pointer;"><span>添加到桌面</span><span class="set-val">${deferredInstallPrompt ? '可立即安装 ›' : '查看安装方法 ›'}</span></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">Edge / Chrome 需通过 https 或 localhost 访问才能安装为应用。<br>安装时会自动把当前数据迁移到桌面应用。</div></div></div>
       <div class="sec-title">意见反馈</div>
       <div class="card-box"><div class="set-row" onclick="openFeedback()" style="cursor:pointer;"><span>反馈与建议</span><span class="set-val">告诉我们你的想法 ›</span></div></div>
       <div class="sec-title">数据管理</div>
@@ -4661,29 +4694,125 @@ document.addEventListener('webkitfullscreenchange', updateWatchFsBtn);
 const VIEWS={ home:viewHome, contacts:viewContacts, moments:viewMoments, profile:viewProfile, chatList:viewChatList, chatRoom:viewChatRoom, mail:viewMail, listen:viewListen, visitors:viewVisitors, cards:viewCards, quizLib:viewQuizLib,
   companionHome:viewCompanionHome, watchHome:viewWatchHome, watchRoom:viewWatchRoom };
 
-if (!S.settings.nextLetterTime) {
-  const minH = S.settings.letterMinHours || 2;
-  const maxH = S.settings.letterMaxHours || 6;
-  S.settings.nextLetterTime = Date.now() + rnd(minH * 3600000, maxH * 3600000);
-}
-S.contacts.forEach(c => {
-  const cs = getChatSettings(c.id);
-  if (!cs.nextAutoMsgTime) { const unit = cs.autoMsgUnit || 'hours'; const multiplier = unit === 'minutes' ? 60000 : 3600000; cs.nextAutoMsgTime = Date.now() + rnd((cs.autoMsgMin || 2) * multiplier, (cs.autoMsgMax || 6) * multiplier); }
-  if (!cs.nextMomentTime) { cs.nextMomentTime = Date.now() + rnd((cs.momentMinHours || 4) * 3600000, (cs.momentMaxHours || 12) * 3600000); }
-});
-if (!S.settings.nextVisitorTime) {
-  const vr = visitorIntervalRange();
-  S.settings.nextVisitorTime = Date.now() + rnd(vr.minH * 3600000, vr.maxH * 3600000);
-}
-if (S.settings.callEnabled && !S.settings.nextCallTime) {
-  const cr = callIntervalRange();
-  S.settings.nextCallTime = Date.now() + rnd(cr.minH * 3600000, cr.maxH * 3600000);
-}
+/* ============ ⭐ 初始化：以 IndexedDB 为唯一数据源 ============ */
+async function initStorage(){
+  // 1. 打开 IndexedDB
+  idbDB = await idbOpen();
+  if (idbDB && pendingIdbSave) { idbSet(pendingIdbSave.key, pendingIdbSave.val); pendingIdbSave = null; }
 
-checkBackupTip();
-checkUpdateNotice();
+  // 2. 立即请求持久化存储（防止浏览器在存储压力下清空数据）
+  try{
+    if (navigator.storage && navigator.storage.persist){
+      const persisted = await navigator.storage.persisted();
+      if (!persisted) navigator.storage.persist().catch(()=>{});
+    }
+  }catch(e){}
 
-(function detectStandalone(){
+  // 3. 从 IDB 读取主数据
+  let gotFromIDB = false;
+  if (idbDB){
+    const raw = await idbGet('libum_data');
+    if (raw){
+      try{
+        const d = JSON.parse(raw);
+        let state, savedAt = 0;
+        if (d && d.state){ state = unpackAssets(d.state, d.assets); savedAt = d.savedAt || 0; }
+        else if (d){ state = d; savedAt = d.__savedAt || 0; }
+        if (state){
+          S = deepMerge(clone(DEFAULT_STATE), state);
+          S.__savedAt = savedAt || Date.now();
+          gotFromIDB = true;
+        }
+      }catch(e){ console.warn('IDB 数据解析失败', e); }
+    }
+  }
+
+  // 4. 兼容旧版：IDB 无数据时，尝试从旧 localStorage 迁移一次
+  if (!gotFromIDB){
+    try{
+      const rawLocal = localStorage.getItem('libum_data');
+      if (rawLocal){
+        const d = JSON.parse(rawLocal);
+        let state, savedAt = 0;
+        if (d && d.state){ state = unpackAssets(d.state, d.assets); savedAt = d.savedAt || 0; }
+        else if (d){ state = d; savedAt = d.__savedAt || 0; }
+        if (state){
+          S = deepMerge(clone(DEFAULT_STATE), state);
+          S.__savedAt = savedAt || Date.now();
+          save(true);
+          localStorage.removeItem('libum_data');
+        }
+      }
+    }catch(e){ console.warn('旧 localStorage 迁移失败', e); }
+  }
+
+  // 5. 安装迁移令牌：把浏览器端数据接力到桌面 PWA
+  try{
+    const token = new URLSearchParams(location.search).get('__migrate');
+    if (token){
+      const json = decodeToken(token);
+      if (json){
+        const migrated = JSON.parse(json);
+        if (migrated && typeof migrated === 'object'){
+          S = deepMerge(S, migrated);
+          save(true);
+          history.replaceState(null, '', location.pathname + location.hash);
+          console.log('安装迁移令牌已合并');
+        }
+      }
+    }
+  }catch(e){ console.warn('迁移令牌解析失败', e); }
+
+  normalizeState();
+  migratePatCards();
+
+  // 6. 初始化各种下一次时间
+  if (!S.settings.nextLetterTime) {
+    const minH = S.settings.letterMinHours || 2;
+    const maxH = S.settings.letterMaxHours || 6;
+    S.settings.nextLetterTime = Date.now() + rnd(minH * 3600000, maxH * 3600000);
+  }
+  S.contacts.forEach(c => {
+    const cs = getChatSettings(c.id);
+    if (!cs.nextAutoMsgTime) { const unit = cs.autoMsgUnit || 'hours'; const multiplier = unit === 'minutes' ? 60000 : 3600000; cs.nextAutoMsgTime = Date.now() + rnd((cs.autoMsgMin || 2) * multiplier, (cs.autoMsgMax || 6) * multiplier); }
+    if (!cs.nextMomentTime) { cs.nextMomentTime = Date.now() + rnd((cs.momentMinHours || 4) * 3600000, (cs.momentMaxHours || 12) * 3600000); }
+  });
+  if (!S.settings.nextVisitorTime) {
+    const vr = visitorIntervalRange();
+    S.settings.nextVisitorTime = Date.now() + rnd(vr.minH * 3600000, vr.maxH * 3600000);
+  }
+  if (S.settings.callEnabled && !S.settings.nextCallTime) {
+    const cr = callIntervalRange();
+    S.settings.nextCallTime = Date.now() + rnd(cr.minH * 3600000, cr.maxH * 3600000);
+  }
+
+  // 7. 渲染
+  lastScrollKey = '';
+  applySettings();
+  render();
+
+  // 8. 处理 URL hash 打开聊天
+  try{
+    const m = location.hash.match(/chat=([^&]+)/);
+    if (m && m[1]){
+      const cid = decodeURIComponent(m[1]);
+      if (getContact(cid)) {
+        setTimeout(() => { go('chatRoom', { id: cid }); }, 300);
+        history.replaceState(null, '', location.pathname + location.search);
+      }
+    }
+  }catch(e){}
+
+  // 9. 恢复保活
+  if (S.settings.keepAlive) {
+    setTimeout(() => { if (S.settings.keepAlive) resumeKeepAlive(); }, 300);
+  }
+
+  // 10. 提示
+  checkBackupTip();
+  checkUpdateNotice();
+
+  // 11. standalone 检测
   try{
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
                        || window.navigator.standalone === true;
@@ -4694,72 +4823,27 @@ checkUpdateNotice();
       setTimeout(() => { showToast('已作为应用启动，数据已同步'); }, 1400);
     }
   }catch(e){}
-})();
 
-applySettings();
-render();
-
-(function openChatFromHash(){
-  try{
-    const m = location.hash.match(/chat=([^&]+)/);
-    if (!m || !m[1]) return;
-    const cid = decodeURIComponent(m[1]);
-    if (getContact(cid)) {
-      setTimeout(() => { go('chatRoom', { id: cid }); }, 300);
-      history.replaceState(null, '', location.pathname + location.search);
-    }
-  }catch(e){}
-})();
-
-if (S.settings.keepAlive) {
-  setTimeout(() => { if (S.settings.keepAlive) resumeKeepAlive(); }, 300);
+  // 12. 首次点击主动请求通知权限（一次，不骚扰）
+  (function ensureNotificationPermission(){
+    try{
+      if(!('Notification' in window)) return;
+      if(Notification.permission === 'granted') return;
+      if(Notification.permission === 'denied') return;
+      const ask = () => {
+        document.removeEventListener('click', ask);
+        document.removeEventListener('touchstart', ask);
+        requestNotificationPermission().then(ok => {
+          if(ok) showToast('系统通知已开启');
+        });
+      };
+      document.addEventListener('click', ask, { once: true });
+      document.addEventListener('touchstart', ask, { once: true });
+    }catch(e){}
+  })();
 }
 
-(async function restoreFromIDB(){
-  try{
-    idbDB = await idbOpen();
-    if (pendingIdbSave) { idbSet(pendingIdbSave.key, pendingIdbSave.val); pendingIdbSave = null; }
-    if (!idbDB) return;
-    const raw = await idbGet('libum_data');
-    if (!raw) return;
-
-    let d;
-    try { d = JSON.parse(raw); } catch(e){ return; }
-    if (!d || typeof d !== 'object') return;
-
-    let state, savedAt;
-    if (d.state) { state = unpackAssets(d.state, d.assets); savedAt = d.savedAt || 0; }
-    else { state = d; savedAt = d.__savedAt || 0; }
-
-    if (savedAt) {
-      S = deepMerge(clone(DEFAULT_STATE), state);
-      S.__savedAt = savedAt || Date.now();
-      normalizeState();
-      lastScrollKey = '';
-      applySettings();
-      render();
-      console.log('已从 IndexedDB 恢复完整数据');
-    }
-  }catch(e){ console.warn('IDB 恢复失败', e); }
-})();
-
-/* ============ 首次点击主动请求通知权限（一次，不骚扰） ============ */
-(function ensureNotificationPermission(){
-  try{
-    if(!('Notification' in window)) return;
-    if(Notification.permission === 'granted') return;
-    if(Notification.permission === 'denied') return;
-    const ask = () => {
-      document.removeEventListener('click', ask);
-      document.removeEventListener('touchstart', ask);
-      requestNotificationPermission().then(ok => {
-        if(ok) showToast('系统通知已开启');
-      });
-    };
-    document.addEventListener('click', ask, { once: true });
-    document.addEventListener('touchstart', ask, { once: true });
-  }catch(e){}
-})();
+initStorage();
 
 window.addEventListener('beforeunload', () => { try{ save(true); }catch(e){} });
 </script>
