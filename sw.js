@@ -1,8 +1,8 @@
 // ============================================================
-// Libum Service Worker (Mochi 全量硬核保活版)
+// Libum Service Worker
 // ============================================================
 
-const CACHE_NAME = 'libum-v2.1.8';
+const CACHE_NAME = 'libum-v2.1.9';
 const PSYNC_SNAP_KEY = 'libum_snap';
 const PSYNC_QUEUE_KEY = 'libum_queue';
 const PSYNC_TAG = 'libum-offline-msg';
@@ -39,24 +39,25 @@ self.addEventListener('periodicsync', function (e) {
     const snap = await idbGet(PSYNC_SNAP_KEY);
     if (!snap || !Array.isArray(snap.texts) || !snap.texts.length) return;
     if (!snap.ts || Date.now() - snap.ts > PSYNC_SNAP_TTL) return;
-    
+
     const pick = snap.texts[Math.floor(Math.random() * snap.texts.length)];
     const text = pick && pick.t ? String(pick.t) : '';
     if (!text) return;
-    
+
     let arr = [];
     try { const q = await idbGet(PSYNC_QUEUE_KEY); if (Array.isArray(q)) arr = q; } catch (e2) {}
     arr.push({ t: text, cid: snap.cid || 'default', ts: Date.now(), k: pick.k || '' });
     while (arr.length > 20) arr.shift();
     await idbSet(PSYNC_QUEUE_KEY, arr);
-    
+
     await self.registration.showNotification(snap.name || 'Libum', {
       body: text,
       tag: PSYNC_TAG,
       renotify: true,
       icon: NOTIF_ICON,
       badge: NOTIF_ICON,
-      vibrate: [200, 100, 200]
+      vibrate: [200, 100, 200],
+      data: { cid: snap.cid || 'default' }
     });
   })().catch(function () {}));
 });
@@ -83,7 +84,7 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// 点击通知
+// 点击通知：有窗口只 postMessage，无窗口写 IDB 后 openWindow
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
   const tag = (e.notification && e.notification.tag) || '';
@@ -91,15 +92,15 @@ self.addEventListener('notificationclick', function (e) {
   const cid = data.cid || null;
 
   e.waitUntil((async function () {
-    if (tag) {
-      try { await idbSet('libum_notify_click', JSON.stringify({ tag: tag, cid: cid, ts: Date.now() })); } catch (x) {}
-    }
     const cs = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     if (cs && cs.length) {
       const c = cs[0];
       try { await c.focus(); } catch (x) {}
       try { c.postMessage({ type: 'MOCHI_NOTIFY_CLICK', cid: cid }); } catch (x) {}
       return;
+    }
+    if (tag || cid) {
+      try { await idbSet('libum_notify_click', JSON.stringify({ tag, cid, ts: Date.now() })); } catch (x) {}
     }
     if (self.clients.openWindow) {
       const url = cid ? ('./#chat=' + encodeURIComponent(cid)) : './';
@@ -139,6 +140,5 @@ function idbSet(key, val) {
 async function checkUnreadAndNotify() {
   try {
     if (!('Notification' in self) || Notification.permission !== 'granted') return;
-    // 你的原有逻辑（保持原样）
   } catch (e) {}
 }

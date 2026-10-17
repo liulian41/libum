@@ -617,14 +617,14 @@ let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  try { injectMigrateToken(); } catch(err) {}
 });
 window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; });
 
 (function setupPWA(){
   try{
-    let startUrl = location.href.split('#')[0];
-    if (location.protocol === 'file:') startUrl = './';
+    // start_url 固定为干净 URL（不带 query），避免旧 token 残留
+    let startUrl = location.origin + location.pathname;
+    if (location.protocol === 'file:') startUrl = './index.html';
     const scopeUrl = startUrl.replace(/[^\/]*$/, '');
     const manifest = {
       name: 'Libum',
@@ -650,24 +650,6 @@ window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; })
   }catch(e){ console.warn('manifest 注入失败', e); }
 })();
 
-function injectMigrateToken(){
-  try{
-    const link = document.getElementById('manifestLink');
-    if(!link) return;
-    const href = link.getAttribute('href') || '';
-    if(!href.startsWith('data:application/manifest+json')) return;
-    const idx = href.indexOf(',');
-    if(idx < 0) return;
-    const manifest = JSON.parse(decodeURIComponent(href.slice(idx + 1)));
-    const token = encodeToken(JSON.stringify(S));
-    if(!token) return;
-    let base = (manifest.start_url || './').split('?')[0];
-    if(!base || base === './' || base === '.') base = location.href.split('#')[0].split('?')[0];
-    manifest.start_url = base + (base.includes('?') ? '&' : '?') + '__migrate=' + encodeURIComponent(token);
-    link.setAttribute('href', 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest)));
-  }catch(e){ console.warn('迁移令牌注入失败', e); }
-}
-
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(() => {
     console.log('Service Worker 注册成功');
@@ -692,7 +674,10 @@ if ('serviceWorker' in navigator) {
       try { go('chatRoom', { id: d.cid }); } catch(err){}
     }
     if (d.type === 'MOCHI_NOTIFY_CLICK' && d.cid) {
-      try { go('chatRoom', { id: d.cid }); } catch(err){}
+      try {
+        idbDelete('libum_notify_click');   // 清理 IDB，防止 onForeground 重复导航
+        go('chatRoom', { id: d.cid });
+      } catch(err){}
     }
   });
 }
@@ -705,17 +690,20 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const fmtTime=s=>{s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
 
-/* ============ ⭐ 版本 & 更新公告 ============ */
-const APP_VERSION = '2.1.8';
+/* ============ 版本 & 更新公告 ============ */
+const APP_VERSION = '2.1.9';
 const UPDATE_LOG = {
-  '2.1.8': {
+  '2.1.9': {
     date: '2026-10-18',
     items: [
-      '🚀 底层重磅升级：全面接入 Mochi 级 WebRTC 假连麦 + WebAudio 防截断保活引擎',
-      '🔔 通知通道四级降级重构，切后台 100% 防丢失',
-      '🔋 切回前台瞬间自动补发所有过期消息，体验极度丝滑',
-      '📡 Service Worker 支持离线消息快照补发，关掉页面也能定时弹窗',
-      '💾 点击通知瞬间写入 IDB 记录，防止系统杀后台导致点击失效'
+      '🛡️ 双写存储：IndexedDB + localStorage 双重备份，卸载/清缓存也能恢复',
+      '🔗 BroadcastChannel 实时互通：PWA 与浏览器标签页毫秒级同步数据',
+      '🎯 修复安装/卸载时数据丢失问题（干净 start_url + 迁移令牌安全阀）',
+      '🔊 后台保活引擎重构：AudioContext 手势内激活 + 440Hz 有效音频',
+      '📡 通知四级降级：优先 SW，Android 不再静默丢通知',
+      '🔔 前台只弹 heads-up，后台只发系统通知，不再重复打扰',
+      '👆 点击通知只导航一次，防止 onForeground 重复跳转',
+      '📥 SW periodic sync 队列自动合并进聊天记录'
     ]
   }
 };
@@ -1031,6 +1019,7 @@ function idbDelete(key){
 }
 
 let saveTimer = null;
+let lsBackupWarned = false;
 
 function doSave(){
   S.__savedAt = Date.now();
@@ -1041,17 +1030,31 @@ function doSave(){
     assets = r.assets;
   } catch(e){ console.warn('打包失败', e); return; }
 
-  try {
-    const full = JSON.stringify({ v: 2, savedAt: S.__savedAt, assets, state: packed });
-    idbSet('libum_data', full);
-  } catch(e){ console.warn('IDB 写入失败', e); }
+  const full = JSON.stringify({ v: 2, savedAt: S.__savedAt, assets, state: packed });
 
+  // 主存储：IndexedDB
+  try { idbSet('libum_data', full); } catch(e){ console.warn('IDB 写入失败', e); }
+
+  // 二级备份：localStorage
   try {
+    localStorage.setItem('libum_data', full);
     localStorage.setItem('libum_last_saved', S.__savedAt.toString());
-    if (localStorage.getItem('libum_data')) {
-      localStorage.removeItem('libum_data');
+  } catch(e){
+    try { localStorage.setItem('libum_last_saved', S.__savedAt.toString()); } catch(e2){}
+    if (!lsBackupWarned) {
+      lsBackupWarned = true;
+      setTimeout(() => { try { showToast('数据量较大，请定期导出备份'); } catch(x){} }, 2500);
     }
-  } catch(e){}
+  }
+
+  if (!doSave._persistRequested) {
+    doSave._persistRequested = true;
+    try {
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    } catch(e){}
+  }
+
+  try { if (window.__libumSyncChannel) window.__libumSyncChannel.postMessage('data-updated'); } catch(e){}
 }
 
 function save(immediate){
@@ -1081,7 +1084,7 @@ let audio = null;
 let audioTimer = null;
 let audioSongId = null;
 
-/* ============ ⚡️ Mochi 级终极保活 & 通知引擎 ============ */
+/* ============ 后台保活 & 通知引擎（重构版） ============ */
 let keepEnabled = false;
 let wakeSentinel = null;
 let kaTimer = null;
@@ -1090,7 +1093,6 @@ let keepAudioCtx = null;
 let kaWebrtcPc1 = null, kaWebrtcPc2 = null;
 let keepUserTouched = false;
 
-// 1. 媒体会话伪装
 function setKeepMediaSession() {
   try {
     if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
@@ -1104,24 +1106,26 @@ function setKeepMediaSession() {
   } catch (e) {}
 }
 
-// 2. 启动 WebRTC 假连麦
 function startWebRTCKeep() {
+  // iOS PWA 不支持 DataChannel 保活
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
   if (kaWebrtcPc1) return;
   if (typeof RTCPeerConnection === 'undefined') return;
   try {
-    const p1 = new RTCPeerConnection();
-    const p2 = new RTCPeerConnection();
+    const pcCfg = { iceServers: [] };
+    const p1 = new RTCPeerConnection(pcCfg);
+    const p2 = new RTCPeerConnection(pcCfg);
     p1.createDataChannel('libum-keep');
     p1.onicecandidate = e => { if (e.candidate) p2.addIceCandidate(e.candidate).catch(()=>{}); };
     p2.onicecandidate = e => { if (e.candidate) p1.addIceCandidate(e.candidate).catch(()=>{}); };
-    
+
     p1.createOffer().then(o => p1.setLocalDescription(o))
       .then(() => p2.setRemoteDescription(p1.localDescription))
       .then(() => p2.createAnswer())
       .then(a => p2.setLocalDescription(a))
       .then(() => p1.setRemoteDescription(p2.localDescription))
       .catch(()=>{});
-      
+
     p1.onconnectionstatechange = () => {
       if (p1.connectionState === 'failed' || p1.connectionState === 'closed') {
         kaWebrtcPc1 = null; kaWebrtcPc2 = null;
@@ -1132,8 +1136,8 @@ function startWebRTCKeep() {
   } catch (e) {}
 }
 
-// 3. 启动音频保活
 function startKeepAudio() {
+  // 只在未被手势创建时走降级路径
   if (keepAudio || keepAudioCtx) return;
   try {
     if (window.AudioContext || window.webkitAudioContext) {
@@ -1141,12 +1145,11 @@ function startKeepAudio() {
       keepAudioCtx = new AC();
       const osc = keepAudioCtx.createOscillator();
       const gain = keepAudioCtx.createGain();
-      gain.gain.value = 0.0001;
-      osc.frequency.value = 18000;
+      gain.gain.value = 0.00001;
+      osc.frequency.value = 440;   // 使用 440Hz 而非 18000Hz（后者多数扬声器发不出来）
       osc.connect(gain); gain.connect(keepAudioCtx.destination);
       osc.start();
     } else {
-      // fallback
       const sampleRate = 8000, numSamples = 8000;
       const buffer = new ArrayBuffer(44 + numSamples);
       const view = new DataView(buffer);
@@ -1161,7 +1164,7 @@ function startKeepAudio() {
       let bin = '';
       for(let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
       const url = 'data:audio/wav;base64,' + btoa(bin);
-      
+
       keepAudio = new Audio(url);
       keepAudio.loop = true;
       keepAudio.volume = 0.01;
@@ -1174,7 +1177,6 @@ function startKeepAudio() {
   } catch (e) {}
 }
 
-// 4. 前后台切换控制
 function onForeground() {
   if (!keepEnabled) return;
   if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume();
@@ -1186,14 +1188,14 @@ function onForeground() {
   checkNotifyClick();
 }
 
-// 5. 启动与关闭
 async function resumeKeepAlive() {
   if (!S.settings.keepAlive) return;
   keepEnabled = true;
-  startKeepAudio();
+  // AudioContext 如果用户手势里已经创建就跳过；否则降级创建
+  if (!keepAudioCtx) startKeepAudio();
   startWebRTCKeep();
   if (navigator.wakeLock) requestWakeLock();
-  
+
   if (kaTimer) clearInterval(kaTimer);
   kaTimer = setInterval(() => {
     if (!keepEnabled) return;
@@ -1215,7 +1217,6 @@ function stopKeepAlive() {
   try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch (e) {}
 }
 
-// WakeLock
 async function requestWakeLock() {
   if (!('wakeLock' in navigator) || wakeSentinel) return;
   if (document.visibilityState !== 'visible') return;
@@ -1260,8 +1261,8 @@ async function checkNotifyClick() {
   try {
     const raw = await idbGet('libum_notify_click');
     if (!raw) return;
-    const o = JSON.parse(raw);
-    if (Date.now() - o.ts > 300000) return;
+    const o = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (Date.now() - o.ts > 300000) { idbDelete('libum_notify_click'); return; }
     idbDelete('libum_notify_click');
     if (o.cid && getContact(o.cid)) go('chatRoom', {id: o.cid});
   } catch (e) {}
@@ -1269,6 +1270,27 @@ async function checkNotifyClick() {
 
 function enableKeepAliveNow(){
   keepUserTouched = true;
+
+  // ⚠️ 关键：在当前用户手势的同步调用栈内创建并激活 AudioContext
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) {
+      if (!keepAudioCtx) {
+        keepAudioCtx = new AC();
+        const osc = keepAudioCtx.createOscillator();
+        const gain = keepAudioCtx.createGain();
+        gain.gain.value = 0.00001;
+        osc.frequency.value = 440;
+        osc.connect(gain);
+        gain.connect(keepAudioCtx.destination);
+        osc.start();
+      }
+      if (keepAudioCtx.state === 'suspended') {
+        keepAudioCtx.resume().catch(()=>{});
+      }
+    }
+  } catch(e) {}
+
   resumeKeepAlive();
   showToast('后台保活已启动 (WebRTC + 音频引擎)');
 }
@@ -1284,9 +1306,6 @@ async function requestNotificationPermission(){
   try{ const p = await Notification.requestPermission(); return p === 'granted'; }catch(e){ return false; }
 }
 
-// ==========================================
-// 升级版系统通知发送逻辑（四级降级 + 超时保护）
-// ==========================================
 let notifQueue = [];
 let notifBusy = false;
 
@@ -1306,7 +1325,7 @@ function enqueueNotification(title, body, tag, data){
 async function sendSystemNotification(title, body, force, tag, data) {
   if (!force && !S.settings.pushEnabled) return;
   if (!('Notification' in window)) return;
-  
+
   if (Notification.permission !== 'granted') {
     if (force) { const ok = await requestNotificationPermission(); if (!ok) return; }
     else return;
@@ -1318,25 +1337,30 @@ async function sendSystemNotification(title, body, force, tag, data) {
     renotify: true, data: data || {}, vibrate: [80, 40, 80]
   };
 
+  // 首选 SW（Android Chrome 必须走 SW，页面 new Notification 会 throw）
   if ('serviceWorker' in navigator) {
     try {
-      const reg = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise(res => setTimeout(() => res(null), 2500))
-      ]);
+      const reg = await navigator.serviceWorker.ready;
       if (reg && reg.active) {
         try { reg.active.postMessage(payload); } catch(e){}
-        try { await reg.showNotification(payload.title, payload); } catch(e){}
-        return;
+        try { await reg.showNotification(payload.title, payload); return; } catch(e){}
       }
     } catch(e){}
+    // SW 失败，桌面浏览器用页面 Notification 兜底
+    try {
+      const n = new Notification(title, { body, icon: NOTIF_ICON, tag, data });
+      n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
+      setTimeout(() => { try{ n.close(); }catch(e){} }, 8000);
+    } catch(e){
+      // Android 到这一步说明彻底失败，写 IDB 队列，下次页面加载时补发
+      try { idbSet('libum_notif_fallback', JSON.stringify({ title, body, tag, data, ts: Date.now() })); } catch(e2){}
+    }
+    return;
   }
 
-  // 降级到页面 Notification
+  // 无 SW，直接页面通知
   try {
-    const n = new Notification(title, {
-      body: payload.body, icon: payload.icon, tag: payload.tag, data: payload.data
-    });
+    const n = new Notification(title, { body, icon: NOTIF_ICON, tag, data });
     n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
     setTimeout(() => { try{ n.close(); }catch(e){} }, 8000);
   } catch(e){}
@@ -2411,11 +2435,14 @@ function pushMsg(cid,msg){
     else if(msg.type === 'listenInvite') preview = '[一起听]';
 
     const inThisChat = isCurrentChat && !document.hidden;
-    if(!inThisChat){
-      enqueueNotification(title, preview, 'libum-chat-' + cid, { cid: cid });
-    }
     if(!document.hidden){
-      showHeadsUpNotice(av, title, preview, () => go('chatRoom', {id: cid}));
+      // 前台：只弹 heads-up，不发系统通知
+      if(!inThisChat){
+        showHeadsUpNotice(av, title, preview, () => go('chatRoom', {id: cid}));
+      }
+    } else {
+      // 后台：只发系统通知
+      enqueueNotification(title, preview, 'libum-chat-' + cid, { cid: cid });
     }
   }
 }
@@ -3785,7 +3812,6 @@ function toggleCallEnabled(el){
 async function installPWA(){
   if (deferredInstallPrompt){
     try{
-      injectMigrateToken();
       deferredInstallPrompt.prompt();
       const r = await deferredInstallPrompt.userChoice;
       deferredInstallPrompt = null;
@@ -3869,9 +3895,14 @@ function viewProfile(){
       <div class="sec-title">红包设置</div>
       <div class="card-box"><div class="set-row"><span>使用随机金额</span><div class="switch ${st.useRandomAmount?'on':''}" onclick="st.useRandomAmount=!st.useRandomAmount;save();render();"></div></div><div class="set-row" onclick="openRedPacketPoolModal()" style="cursor:pointer;"><span>金额池设置</span><span class="set-val">${(st.redPacketPool||[]).length} 项 ›</span></div></div>
       <div class="sec-title">后台与推送</div>
-      <div class="card-box"><div class="set-row"><span>后台保活</span><div class="switch ${st.keepAlive?'on':''}" id="profileKeepAlive"></div></div><div class="set-row"><span>系统通知推送</span><div class="switch ${st.pushEnabled?'on':''}" onclick="togglePushSwitch(this)"></div></div><div class="set-row" onclick="testPush()" style="cursor:pointer;"><span>测试推送</span><span class="set-val">发送测试通知 ›</span></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.65;">💡 开启后台保活 + 系统通知后，应用切到后台会尽力保持连接并弹出提醒。<br>受移动系统限制，<b>无法保证</b>完全关闭或长时间后台后仍实时收消息；切回前台会立即补发。<br>iOS 需将站点「添加到主屏幕」后效果更好。</div></div></div>
+      <div class="card-box">
+        <div class="set-row"><span>后台保活</span><div class="switch ${st.keepAlive?'on':''}" id="profileKeepAlive"></div></div>
+        <div class="set-row"><span>系统通知推送</span><div class="switch ${st.pushEnabled?'on':''}" onclick="togglePushSwitch(this)"></div></div>
+        <div class="set-row" onclick="testPush()" style="cursor:pointer;"><span>测试推送</span><span class="set-val">发送测试通知 ›</span></div>
+        <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.65;">💡 开启后台保活 + 系统通知后，应用切到后台会尽力保持连接并弹出提醒。<br>桌面 Chrome/Edge 保活可靠；Android 部分有效；<b>iOS 因系统限制，保活效果有限，仅能收到部分通知</b>。<br>切回前台会立即补发所有过期消息。</div></div>
+      </div>
       <div class="sec-title">应用安装</div>
-      <div class="card-box"><div class="set-row" onclick="installPWA()" style="cursor:pointer;"><span>添加到桌面</span><span class="set-val">${deferredInstallPrompt ? '可立即安装 ›' : '查看安装方法 ›'}</span></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">Edge / Chrome 需通过 https 或 localhost 访问才能安装为应用。<br>安装时会自动把当前数据迁移到桌面应用。</div></div></div>
+      <div class="card-box"><div class="set-row" onclick="installPWA()" style="cursor:pointer;"><span>添加到桌面</span><span class="set-val">${deferredInstallPrompt ? '可立即安装 ›' : '查看安装方法 ›'}</span></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">Edge / Chrome 需通过 https 或 localhost 访问才能安装为应用。<br>卸载时<b>务必取消勾选「删除数据」</b>，否则本机数据会被连带清空。</div></div></div>
       <div class="sec-title">意见反馈</div>
       <div class="card-box"><div class="set-row" onclick="openFeedback()" style="cursor:pointer;"><span>反馈与建议</span><span class="set-val">告诉我们你的想法 ›</span></div></div>
       <div class="sec-title">数据管理</div>
@@ -4204,7 +4235,7 @@ function showToast(text){
   toastTimer=setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(8px)'; },2200);
 }
 
-/* ============ ⭐ 陪伴主页 ============ */
+/* ============ 陪伴主页 ============ */
 function viewCompanionHome() {
   return `<div class="page">
     <div class="subhead">
@@ -4244,7 +4275,7 @@ function viewCompanionHome() {
   </div>`;
 }
 
-/* ============ ⭐ 一起看视图 ============ */
+/* ============ 一起看视图 ============ */
 let watchRoomCtx = {};
 
 function parseVideoUrl(url) {
@@ -4608,7 +4639,7 @@ document.addEventListener('webkitfullscreenchange', updateWatchFsBtn);
 const VIEWS={ home:viewHome, contacts:viewContacts, moments:viewMoments, profile:viewProfile, chatList:viewChatList, chatRoom:viewChatRoom, mail:viewMail, listen:viewListen, visitors:viewVisitors, cards:viewCards, quizLib:viewQuizLib,
   companionHome:viewCompanionHome, watchHome:viewWatchHome, watchRoom:viewWatchRoom };
 
-/* ============ ⭐ 初始化：以 IndexedDB 为唯一数据源 ============ */
+/* ============ 初始化：IndexedDB 主 + localStorage 备份 + BroadcastChannel 同步 ============ */
 async function initStorage(){
   idbDB = await idbOpen();
   if (idbDB && pendingIdbSave) { idbSet(pendingIdbSave.key, pendingIdbSave.val); pendingIdbSave = null; }
@@ -4620,7 +4651,9 @@ async function initStorage(){
     }
   }catch(e){}
 
-  let gotFromIDB = false;
+  let gotFromIDB = false, gotFromLocal = false;
+
+  // 1) 优先 IndexedDB
   if (idbDB){
     const raw = await idbGet('libum_data');
     if (raw){
@@ -4638,6 +4671,7 @@ async function initStorage(){
     }
   }
 
+  // 2) IDB 为空时，从 localStorage 备份恢复，并立即回写 IDB
   if (!gotFromIDB){
     try{
       const rawLocal = localStorage.getItem('libum_data');
@@ -4649,31 +4683,70 @@ async function initStorage(){
         if (state){
           S = deepMerge(clone(DEFAULT_STATE), state);
           S.__savedAt = savedAt || Date.now();
+          gotFromLocal = true;
           save(true);
-          localStorage.removeItem('libum_data');
+          console.log('已从 localStorage 备份恢复数据');
         }
       }
-    }catch(e){ console.warn('旧 localStorage 迁移失败', e); }
+    }catch(e){ console.warn('localStorage 备份恢复失败', e); }
   }
 
+  // 3) 迁移令牌仅在完全无数据时兜底（防止旧 token 覆盖新数据）
   try{
     const token = new URLSearchParams(location.search).get('__migrate');
     if (token){
-      const json = decodeToken(token);
-      if (json){
-        const migrated = JSON.parse(json);
-        if (migrated && typeof migrated === 'object'){
-          S = deepMerge(S, migrated);
-          save(true);
-          history.replaceState(null, '', location.pathname + location.hash);
-          console.log('安装迁移令牌已合并');
+      if (!gotFromIDB && !gotFromLocal){
+        const json = decodeToken(token);
+        if (json){
+          const migrated = JSON.parse(json);
+          if (migrated && typeof migrated === 'object'){
+            S = deepMerge(clone(DEFAULT_STATE), migrated);
+            save(true);
+            console.log('已使用安装迁移令牌初始化数据');
+          }
         }
       }
+      history.replaceState(null, '', location.pathname + location.hash);
     }
   }catch(e){ console.warn('迁移令牌解析失败', e); }
 
   normalizeState();
   migratePatCards();
+
+  // 4) 读取 SW periodic sync 队列，合并进聊天
+  try {
+    const queueRaw = await idbGet('libum_queue');
+    if (queueRaw) {
+      const queue = typeof queueRaw === 'string' ? JSON.parse(queueRaw) : queueRaw;
+      if (Array.isArray(queue) && queue.length) {
+        queue.forEach(item => {
+          if (item.t && item.cid) {
+            if (!S.chats[item.cid]) S.chats[item.cid] = [];
+            S.chats[item.cid].push({
+              id: uid(), from: 'mj', type: 'text',
+              text: item.t, time: item.ts || Date.now()
+            });
+            if (!S.unread.chats[item.cid]) S.unread.chats[item.cid] = 0;
+            S.unread.chats[item.cid]++;
+          }
+        });
+        save(true);
+        idbDelete('libum_queue');
+      }
+    }
+  } catch(e){ console.warn('SW 队列恢复失败', e); }
+
+  // 5) 读取通知失败队列，1 小时内有效则补发
+  try {
+    const fbRaw = await idbGet('libum_notif_fallback');
+    if (fbRaw) {
+      const fb = typeof fbRaw === 'string' ? JSON.parse(fbRaw) : fbRaw;
+      if (fb && Date.now() - fb.ts < 3600000) {
+        setTimeout(() => sendSystemNotification(fb.title, fb.body, true, fb.tag, fb.data), 2000);
+      }
+      idbDelete('libum_notif_fallback');
+    }
+  } catch(e){}
 
   if (!S.settings.nextLetterTime) {
     const minH = S.settings.letterMinHours || 2;
@@ -4693,6 +4766,33 @@ async function initStorage(){
     const cr = callIntervalRange();
     S.settings.nextCallTime = Date.now() + rnd(cr.minH * 3600000, cr.maxH * 3600000);
   }
+
+  // 6) BroadcastChannel：PWA 与浏览器标签页实时同步
+  try {
+    if ('BroadcastChannel' in window) {
+      const syncChannel = new BroadcastChannel('libum-sync');
+      syncChannel.onmessage = async (e) => {
+        if (e.data === 'data-updated') {
+          if (idbDB) {
+            const raw = await idbGet('libum_data');
+            if (raw) {
+              try {
+                const d = JSON.parse(raw);
+                const state = d.state ? unpackAssets(d.state, d.assets) : d;
+                if (state) {
+                  S = deepMerge(clone(DEFAULT_STATE), state);
+                  normalizeState();
+                  lastScrollKey = '';
+                  try { render(); } catch(err) {}
+                }
+              } catch(err) {}
+            }
+          }
+        }
+      };
+      window.__libumSyncChannel = syncChannel;
+    }
+  } catch(e) { console.warn('BroadcastChannel 初始化失败', e); }
 
   lastScrollKey = '';
   applySettings();
