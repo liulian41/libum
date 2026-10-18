@@ -430,7 +430,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 html.kb-open .chat-inputbar{ padding-bottom: 9px !important; }
 html.kb-open .tabbar{ padding-bottom: 8px !important; }
 
-/* ============ 陪伴主页 ============ */
 .companion-list { display: flex; flex-direction: column; gap: 12px; }
 .companion-card { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 20px; background: rgba(255,255,255,.14); backdrop-filter: blur(var(--blur)) saturate(170%); -webkit-backdrop-filter: blur(var(--blur)) saturate(170%); border: 1px solid rgba(255,255,255,.26); transition: transform .18s, background .18s; cursor: pointer; }
 .companion-card:active { transform: scale(.985); background: rgba(255,255,255,.22); }
@@ -440,7 +439,6 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
 .companion-name { font-size: 15px; font-weight: 600; color: #fff; }
 .companion-desc { font-size: 11.5px; color: rgba(255,255,255,.65); margin-top: 4px; line-height: 1.4; }
 
-/* ============ 一起看 ============ */
 .watch-hero { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px 24px;border-radius:24px;background:rgba(255,255,255,.13);backdrop-filter:blur(var(--blur)) saturate(170%);-webkit-backdrop-filter:blur(var(--blur)) saturate(170%);border:1px solid rgba(255,255,255,.26);margin-bottom:16px;text-align:center; }
 .watch-hero-icon { width:64px;height:64px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7f8ff5,#e29ad8);color:#fff;box-shadow:0 12px 30px rgba(127,143,245,.4); }
 .watch-hero-icon svg { width:30px;height:30px; }
@@ -601,7 +599,6 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
 <style id="customCssStyle"></style>
 
 <script>
-/* ============ 工具：迁移令牌编解码 ============ */
 function encodeToken(str){
   try{
     const bytes = new TextEncoder().encode(str);
@@ -622,7 +619,6 @@ function decodeToken(t){
   }catch(e){ return ''; }
 }
 
-/* ============ PWA：manifest 动态注入 + 安装支持 ============ */
 let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -636,16 +632,10 @@ window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; })
     if (location.protocol === 'file:') startUrl = './index.html';
     const scopeUrl = startUrl.replace(/[^\/]*$/, '');
     const manifest = {
-      name: 'Libum',
-      short_name: 'Libum',
-      description: '一个温柔的陪伴小站',
-      start_url: startUrl,
-      scope: scopeUrl,
-      display: 'standalone',
-      display_override: ['standalone', 'minimal-ui'],
-      orientation: 'portrait',
-      background_color: '#a58cf0',
-      theme_color: '#a58cf0',
+      name: 'Libum', short_name: 'Libum', description: '一个温柔的陪伴小站',
+      start_url: startUrl, scope: scopeUrl,
+      display: 'standalone', display_override: ['standalone', 'minimal-ui'],
+      orientation: 'portrait', background_color: '#a58cf0', theme_color: '#a58cf0',
       icons: [
         { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
         { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
@@ -653,40 +643,28 @@ window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; })
       ]
     };
     const link = document.getElementById('manifestLink');
-    if(link){
-      link.setAttribute('href', 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest)));
-    }
+    if(link){ link.setAttribute('href', 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest))); }
   }catch(e){ console.warn('manifest 注入失败', e); }
 })();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(() => {
-    console.log('Service Worker 注册成功');
     if ('PeriodicSyncManager' in window) {
       navigator.serviceWorker.ready.then(async (registration) => {
         try {
           const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
           if (status.state === 'granted') {
-            await registration.periodicSync.register('libum-offline-msg', {
-              minInterval: 60 * 60 * 1000
-            });
+            await registration.periodicSync.register('libum-offline-msg', { minInterval: 60 * 60 * 1000 });
           }
-        } catch (e) { console.log('PeriodicSync 注册失败'); }
+        } catch (e) {}
       });
     }
-  }).catch(err => {
-    console.log('Service Worker 注册失败:', err);
-  });
+  }).catch(err => { console.log('Service Worker 注册失败:', err); });
   navigator.serviceWorker.addEventListener('message', (e) => {
     const d = e.data || {};
-    if (d.type === 'OPEN_CHAT' && d.cid) {
-      try { go('chatRoom', { id: d.cid }); } catch(err){}
-    }
+    if (d.type === 'OPEN_CHAT' && d.cid) { try { go('chatRoom', { id: d.cid }); } catch(err){} }
     if (d.type === 'MOCHI_NOTIFY_CLICK' && d.cid) {
-      try {
-        idbDelete('libum_notify_click');
-        go('chatRoom', { id: d.cid });
-      } catch(err){}
+      try { idbDelete('libum_notify_click'); go('chatRoom', { id: d.cid }); } catch(err){}
     }
   });
 }
@@ -695,13 +673,23 @@ const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const uid=()=>Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3);
 const pick=a=>{if(!a||!a.length) return '';const item = a[Math.floor(Math.random()*a.length)];return typeof item === 'object' ? (item.text || item.title || '') : item;};
+const pickObj=a=>{if(!a||!a.length) return null;return a[Math.floor(Math.random()*a.length)];};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const fmtTime=s=>{s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
 
-/* ============ 版本 & 更新公告 ============ */
-const APP_VERSION = '2.1.9';
+const APP_VERSION = '2.2.0';
 const UPDATE_LOG = {
+  '2.2.0': {
+    date: '2026-10-18',
+    items: [
+      '📝 问卷支持自定义对方回复时间（秒），按联系人独立保存',
+      '🗑️ 新增「按日期清空聊天记录」功能，仅删除聊天消息，其他数据不受影响',
+      '📅 支持「该日期之前 / 仅该日期 / 该日期之后」三种清除范围',
+      '🎯 全局与单聊均可使用，删除前会显示将删除的消息条数',
+      '🎉 公告每次打开都会展示，新老用户都能看到本次更新内容'
+    ]
+  },
   '2.1.9': {
     date: '2026-10-18',
     items: [
@@ -818,7 +806,7 @@ const DEFAULT_STATE={
     keepAlive: false,pushEnabled: true,lastBackupTip: 0,
     playMode: 'list',
     visitorRate: 50, visitorMinHours: 2, visitorMaxHours: 8, nextVisitorTime: null,
-    callEnabled: false, callRate: 50, callMinHours: 6, callMaxHours: 24, nextCallTime: null,
+    callEnabled: false, callRate: 70, callMinHours: 6, callMaxHours: 24, nextCallTime: null,
     playHistory: []
   }
 };
@@ -918,22 +906,10 @@ function normalizeState(){
   if(S.settings.wallpaperDim === undefined) S.settings.wallpaperDim = 0;
   if(!S.settings.playMode) S.settings.playMode = 'list';
   if(S.settings.nextVisitorTime == null) S.settings.nextVisitorTime = null;
-  if(S.settings.visitorRate == null){
-    let vr = 50;
-    if(typeof S.settings.visitorMinHours === 'number' && S.settings.visitorMinHours > 0){
-      vr = Math.round((12 - S.settings.visitorMinHours) / 11.5 * 100);
-    }
-    S.settings.visitorRate = Math.max(0, Math.min(100, vr));
-  }
+  if(S.settings.visitorRate == null){ S.settings.visitorRate = 50; }
   if(S.settings.callEnabled === undefined) S.settings.callEnabled = false;
   if(S.settings.nextCallTime === undefined) S.settings.nextCallTime = null;
-  if(S.settings.callRate == null){
-    let cr = 50;
-    if(typeof S.settings.callMinHours === 'number' && S.settings.callMinHours > 0){
-      cr = Math.round((24 - S.settings.callMinHours) / 23 * 100);
-    }
-    S.settings.callRate = Math.max(0, Math.min(100, cr));
-  }
+  if(S.settings.callRate == null){ S.settings.callRate = 70; }
   if(!Array.isArray(S.settings.playHistory)) S.settings.playHistory = [];
   if(S.settings.mjMomentCombine === undefined) S.settings.mjMomentCombine = true;
   if(S.settings.mjMomentCombineMin == null) S.settings.mjMomentCombineMin = 2;
@@ -1091,62 +1067,37 @@ let audio = null;
 let audioTimer = null;
 let audioSongId = null;
 
-/* ============ 后台保活 & 通知引擎（重构版） ============ */
+/* ============ 后台保活（Worker + 视频流 + 音频 + WebRTC 四重） ============ */
 let keepEnabled = false;
 let wakeSentinel = null;
 let kaTimer = null;
+let kaTimer2 = null;
+let kaWorker = null;
 let keepAudio = null;
 let keepAudioCtx = null;
+let keepVideoEl = null;
+let keepVideoDrawTimer = null;
 let kaWebrtcPc1 = null, kaWebrtcPc2 = null;
 let keepUserTouched = false;
+let lastKeepBeat = 0;
 
-// ================= 修改这里：参考图3的完美伪装 =================
 function setKeepMediaSession() {
   try {
     if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
-
-    // 1. 设置通知栏的显示内容（完美对齐图3）
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: '保持后台连接中',      // 主标题
-      artist: 'Libum - 后台保活',   // 副标题
+      title: '保持后台连接中',
+      artist: 'Libum - 后台保活',
       album: 'KeepAlive',
-      // 画一个类似图3的无限循环图标
-      artwork: [{ 
-        src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="20" fill="#f3f3f5"/><path d="M30 48a12 12 0 0 1 12-12h12a12 12 0 0 1 12 12v0a12 12 0 0 1-12 12H42a12 12 0 0 1-12-12z" fill="none" stroke="#1a1a1a" stroke-width="4"/><circle cx="48" cy="48" r="3" fill="#1a1a1a"/></svg>'), 
-        sizes: '96x96', 
-        type: 'image/svg+xml' 
-      }]
+      artwork: [{ src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="20" fill="#f3f3f5"/><path d="M30 48a12 12 0 0 1 12-12h12a12 12 0 0 1 12 12v0a12 12 0 0 1-12 12H42a12 12 0 0 1-12-12z" fill="none" stroke="#1a1a1a" stroke-width="4"/><circle cx="48" cy="48" r="3" fill="#1a1a1a"/></svg>'), sizes: '96x96', type: 'image/svg+xml' }]
     });
-
-    // 2. 设置状态为正在播放
     navigator.mediaSession.playbackState = 'playing';
-
-    // 3. 拦截通知栏的播放控制按钮，防止用户误触导致保活失效
-    navigator.mediaSession.setActionHandler('play', () => {
-      navigator.mediaSession.playbackState = 'playing';
-      if (keepAudio && keepAudio.paused) keepAudio.play().catch(()=>{});
-      if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume();
-    });
-
-    navigator.mediaSession.setActionHandler('pause', () => {
-      navigator.mediaSession.playbackState = 'playing'; // 假装响应，瞬间变回播放
-    });
-
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      navigator.mediaSession.playbackState = 'playing';
-    });
-    
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      navigator.mediaSession.playbackState = 'playing';
-    });
-    
-    navigator.mediaSession.setActionHandler('stop', () => {
-      navigator.mediaSession.playbackState = 'playing';
-    });
-
+    navigator.mediaSession.setActionHandler('play', () => { navigator.mediaSession.playbackState = 'playing'; if (keepAudio && keepAudio.paused) keepAudio.play().catch(()=>{}); });
+    navigator.mediaSession.setActionHandler('pause', () => { navigator.mediaSession.playbackState = 'playing'; });
+    navigator.mediaSession.setActionHandler('previoustrack', () => { navigator.mediaSession.playbackState = 'playing'; });
+    navigator.mediaSession.setActionHandler('nexttrack', () => { navigator.mediaSession.playbackState = 'playing'; });
+    navigator.mediaSession.setActionHandler('stop', () => { navigator.mediaSession.playbackState = 'playing'; });
   } catch (e) {}
 }
-// ===============================================================
 
 function startWebRTCKeep() {
   if (/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
@@ -1159,14 +1110,12 @@ function startWebRTCKeep() {
     p1.createDataChannel('libum-keep');
     p1.onicecandidate = e => { if (e.candidate) p2.addIceCandidate(e.candidate).catch(()=>{}); };
     p2.onicecandidate = e => { if (e.candidate) p1.addIceCandidate(e.candidate).catch(()=>{}); };
-
     p1.createOffer().then(o => p1.setLocalDescription(o))
       .then(() => p2.setRemoteDescription(p1.localDescription))
       .then(() => p2.createAnswer())
       .then(a => p2.setLocalDescription(a))
       .then(() => p1.setRemoteDescription(p2.localDescription))
       .catch(()=>{});
-
     p1.onconnectionstatechange = () => {
       if (p1.connectionState === 'failed' || p1.connectionState === 'closed') {
         kaWebrtcPc1 = null; kaWebrtcPc2 = null;
@@ -1178,49 +1127,116 @@ function startWebRTCKeep() {
 }
 
 function startKeepAudio() {
-  if (keepAudio || keepAudioCtx) return;
+  if (keepAudio) {
+    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
+    return;
+  }
   try {
-    if (window.AudioContext || window.webkitAudioContext) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      keepAudioCtx = new AC();
-      const osc = keepAudioCtx.createOscillator();
-      const gain = keepAudioCtx.createGain();
-      gain.gain.value = 0.00001;
-      osc.frequency.value = 440;
-      osc.connect(gain); gain.connect(keepAudioCtx.destination);
-      osc.start();
-    } else {
-      const sampleRate = 8000, numSamples = 8000;
-      const buffer = new ArrayBuffer(44 + numSamples);
-      const view = new DataView(buffer);
-      const ws = (o, s) => { for(let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-      ws(0, 'RIFF'); view.setUint32(4, 36 + numSamples, true); ws(8, 'WAVE'); ws(12, 'fmt ');
-      view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-      view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate, true);
-      view.setUint16(32, 1, true); view.setUint16(34, 8, true);
-      ws(36, 'data'); view.setUint32(40, numSamples, true);
-      const bytes = new Uint8Array(buffer);
-      for(let i = 0; i < numSamples; i++) bytes[44 + i] = 128;
-      let bin = '';
-      for(let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-      const url = 'data:audio/wav;base64,' + btoa(bin);
+    const sampleRate = 8000, numSamples = 8000;
+    const buffer = new ArrayBuffer(44 + numSamples);
+    const view = new DataView(buffer);
+    const ws = (o, s) => { for(let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+    ws(0, 'RIFF'); view.setUint32(4, 36 + numSamples, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate, true);
+    view.setUint16(32, 1, true); view.setUint16(34, 8, true);
+    ws(36, 'data'); view.setUint32(40, numSamples, true);
+    const bytes = new Uint8Array(buffer);
+    for(let i = 0; i < numSamples; i++) bytes[44 + i] = 128;
+    let bin = '';
+    for(let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const url = 'data:audio/wav;base64,' + btoa(bin);
 
-      keepAudio = new Audio(url);
-      keepAudio.loop = true;
-      keepAudio.volume = 0.01;
-      keepAudio.play().catch(()=>{});
-      keepAudio.addEventListener('pause', () => {
-        if (keepEnabled && document.hidden) setTimeout(() => keepAudio.play().catch(()=>{}), 1000);
-      });
-    }
+    keepAudio = new Audio(url);
+    keepAudio.loop = true;
+    keepAudio.volume = 0.01;
+    keepAudio.setAttribute('playsinline', '');
+    keepAudio.play().catch(e => {});
+    keepAudio.addEventListener('pause', () => {
+      if (keepEnabled && document.hidden) setTimeout(() => keepAudio.play().catch(()=>{}), 1000);
+    });
     setKeepMediaSession();
+
+    if (!keepAudioCtx) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) {
+          keepAudioCtx = new AC();
+          const osc = keepAudioCtx.createOscillator();
+          const gain = keepAudioCtx.createGain();
+          gain.gain.value = 0.0001;
+          osc.frequency.value = 440;
+          osc.connect(gain);
+          gain.connect(keepAudioCtx.destination);
+          osc.start();
+          keepAudioCtx.__osc = osc;
+        }
+      } catch (e) {}
+    }
+    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
+  } catch (e) {
+    console.error('保活音频启动失败', e);
+  }
+}
+
+function startKeepVideoStream() {
+  if (keepVideoEl) return;
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = 4; cv.height = 4;
+    const ctx = cv.getContext('2d');
+    let n = 0;
+    const draw = () => {
+      n = (n + 1) % 255;
+      ctx.fillStyle = 'rgb(' + n + ',' + n + ',' + n + ')';
+      ctx.fillRect(0, 0, 4, 4);
+    };
+    draw();
+    const stream = cv.captureStream ? cv.captureStream(2) : null;
+    if (!stream) return;
+    const v = document.createElement('video');
+    v.muted = true;
+    v.playsInline = true;
+    v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', '');
+    v.srcObject = stream;
+    v.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+    document.body.appendChild(v);
+    v.play().catch(()=>{});
+    keepVideoEl = v;
+    keepVideoDrawTimer = setInterval(draw, 500);
   } catch (e) {}
+}
+
+function startKeepWorker() {
+  if (kaWorker) return;
+  try {
+    const code = "let t=null;self.onmessage=function(e){if(e.data==='start'){if(t)clearInterval(t);t=setInterval(function(){self.postMessage('beat');},1000);}else if(e.data==='stop'){if(t)clearInterval(t);t=null;}};";
+    const blob = new Blob([code], {type: 'application/javascript'});
+    kaWorker = new Worker(URL.createObjectURL(blob));
+    kaWorker.onmessage = function(e) {
+      if (e.data === 'beat') {
+        lastKeepBeat = Date.now();
+        if (!keepEnabled) return;
+        if (keepAudio && keepAudio.paused && !document.hidden) keepAudio.play().catch(()=>{});
+        if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
+      }
+    };
+    kaWorker.postMessage('start');
+  } catch (e) { kaWorker = null; }
+}
+
+function stopKeepWorker() {
+  if (kaWorker) {
+    try { kaWorker.postMessage('stop'); kaWorker.terminate(); } catch(e) {}
+    kaWorker = null;
+  }
 }
 
 function onForeground() {
   if (!keepEnabled) return;
-  if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume();
   if (keepAudio && keepAudio.paused) keepAudio.play().catch(()=>{});
+  if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
   if (navigator.wakeLock) requestWakeLock();
   startWebRTCKeep();
   runTimersNow();
@@ -1231,28 +1247,49 @@ function onForeground() {
 async function resumeKeepAlive() {
   if (!S.settings.keepAlive) return;
   keepEnabled = true;
-  if (!keepAudioCtx) startKeepAudio();
+  if (!keepAudio) startKeepAudio();
+  else {
+    setKeepMediaSession();
+    if (keepAudio.paused) keepAudio.play().catch(()=>{});
+  }
+  if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
   startWebRTCKeep();
+  startKeepVideoStream();
+  startKeepWorker();
   if (navigator.wakeLock) requestWakeLock();
 
   if (kaTimer) clearInterval(kaTimer);
   kaTimer = setInterval(() => {
     if (!keepEnabled) return;
-    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume();
+    setKeepMediaSession();
+    if (keepAudio && keepAudio.paused && !document.hidden) keepAudio.play().catch(()=>{});
+    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
     if (!document.hidden && !wakeSentinel) requestWakeLock();
-    if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing';
     runTimersNow();
+  }, 3000);
+
+  if (kaTimer2) clearInterval(kaTimer2);
+  kaTimer2 = setInterval(() => {
+    if (!keepEnabled) return;
+    if (Date.now() - lastKeepBeat > 4000) { stopKeepWorker(); startKeepWorker(); }
+    if (keepAudio && keepAudio.paused && !document.hidden) keepAudio.play().catch(()=>{});
+    if (keepVideoEl && keepVideoEl.paused && !document.hidden) keepVideoEl.play().catch(()=>{});
+    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
   }, 5000);
 }
 
 function stopKeepAlive() {
   keepEnabled = false;
   if (wakeSentinel) { try { wakeSentinel.release(); } catch (e) {} wakeSentinel = null; }
-  if (keepAudioCtx) { try { keepAudioCtx.close(); } catch (e) {} keepAudioCtx = null; }
   if (keepAudio) { try { keepAudio.pause(); keepAudio.src = ''; } catch (e) {} keepAudio = null; }
+  if (keepAudioCtx) { try { if (keepAudioCtx.__osc) keepAudioCtx.__osc.stop(); keepAudioCtx.close(); } catch (e) {} keepAudioCtx = null; }
+  if (keepVideoEl) { try { keepVideoEl.pause(); keepVideoEl.srcObject = null; keepVideoEl.remove(); } catch(e) {} keepVideoEl = null; }
+  if (keepVideoDrawTimer) { clearInterval(keepVideoDrawTimer); keepVideoDrawTimer = null; }
+  stopKeepWorker();
   if (kaWebrtcPc1) { try { kaWebrtcPc1.close(); } catch (e) {} kaWebrtcPc1 = null; }
   if (kaWebrtcPc2) { try { kaWebrtcPc2.close(); } catch (e) {} kaWebrtcPc2 = null; }
   if (kaTimer) { clearInterval(kaTimer); kaTimer = null; }
+  if (kaTimer2) { clearInterval(kaTimer2); kaTimer2 = null; }
   try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch (e) {}
 }
 
@@ -1274,7 +1311,8 @@ document.addEventListener('visibilitychange', () => {
   } else {
     if (keepEnabled) {
       if (keepAudio) keepAudio.play().catch(()=>{});
-      if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume();
+      if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
+      if (keepVideoEl) keepVideoEl.play().catch(()=>{});
       syncSnapshotToSW();
     }
     save(true);
@@ -1283,14 +1321,15 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('focus', onForeground);
 window.addEventListener('pageshow', onForeground);
 
-function syncSnapshotToSW() {
+function syncSnapshotToSW(cid) {
   if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+  const targetCid = cid || chatCtx.id || 'default';
   const texts = (S.cards.chat || []).map(it => ({ t: (typeof it === 'object' ? it.text : it) }));
   if (!texts.length) return;
   const snap = {
     v: 1, ts: Date.now(),
-    cid: chatCtx.id || 'default',
-    name: getContact(chatCtx.id)?.name || 'Libum',
+    cid: targetCid,
+    name: (getContact(targetCid) && getContact(targetCid).name) || 'Libum',
     texts: texts.slice(0, 20)
   };
   idbSet('libum_snap', snap);
@@ -1309,32 +1348,15 @@ async function checkNotifyClick() {
 
 function enableKeepAliveNow(){
   keepUserTouched = true;
-  try {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (AC) {
-      if (!keepAudioCtx) {
-        keepAudioCtx = new AC();
-        const osc = keepAudioCtx.createOscillator();
-        const gain = keepAudioCtx.createGain();
-        gain.gain.value = 0.00001;
-        osc.frequency.value = 440;
-        osc.connect(gain);
-        gain.connect(keepAudioCtx.destination);
-        osc.start();
-      }
-      if (keepAudioCtx.state === 'suspended') {
-        keepAudioCtx.resume().catch(()=>{});
-      }
-    }
-  } catch(e) {}
-
+  startKeepAudio();
   resumeKeepAlive();
-  showToast('后台保活已启动 (WebRTC + 音频引擎)');
+  if('Notification' in window && Notification.permission === 'default'){
+    requestNotificationPermission().then(ok => { if(ok) showToast('系统通知已开启'); });
+  }
+  showToast('超强保活已启动（Worker+音频+视频流+WebRTC）');
 }
 
-function runTimersNow(){
-  try{ if(typeof checkAllTimers === 'function') checkAllTimers(); }catch(e){}
-}
+function runTimersNow(){ try{ if(typeof checkAllTimers === 'function') checkAllTimers(); }catch(e){} }
 
 async function requestNotificationPermission(){
   if(!('Notification' in window)) return false;
@@ -1354,7 +1376,7 @@ function enqueueNotification(title, body, tag, data){
     if(!notifQueue.length){ notifBusy = false; return; }
     const item = notifQueue.shift();
     sendSystemNotification(item.title, item.body, false, item.tag, item.data);
-    setTimeout(drain, 320);
+    setTimeout(drain, 200);
   };
   drain();
 }
@@ -1362,18 +1384,15 @@ function enqueueNotification(title, body, tag, data){
 async function sendSystemNotification(title, body, force, tag, data) {
   if (!force && !S.settings.pushEnabled) return;
   if (!('Notification' in window)) return;
-
   if (Notification.permission !== 'granted') {
     if (force) { const ok = await requestNotificationPermission(); if (!ok) return; }
     else return;
   }
-
   const payload = {
     type: 'SHOW_NOTIFICATION', title: title || 'Libum', body: body || '',
     icon: NOTIF_ICON, badge: NOTIF_ICON, tag: tag || 'libum-msg',
     renotify: true, data: data || {}, vibrate: [80, 40, 80]
   };
-
   if ('serviceWorker' in navigator) {
     try {
       const reg = await navigator.serviceWorker.ready;
@@ -1391,7 +1410,6 @@ async function sendSystemNotification(title, body, force, tag, data) {
     }
     return;
   }
-
   try {
     const n = new Notification(title, { body, icon: NOTIF_ICON, tag, data });
     n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
@@ -1467,8 +1485,10 @@ function importData(){
 
 function checkUpdateNotice(){
   try {
-    const seen = localStorage.getItem('libum_seen_version') || '';
-    if (seen === APP_VERSION) return;
+    // 每次打开都展示更新公告，同一会话内只弹一次，避免频繁刷新重复打扰
+    const sessionKey = 'libum_notice_shown_' + APP_VERSION;
+    if (sessionStorage.getItem(sessionKey) === '1') return;
+    sessionStorage.setItem(sessionKey, '1');
     setTimeout(() => showUpdateNotice(APP_VERSION), 1200);
   } catch(e){}
 }
@@ -1583,6 +1603,8 @@ function getChatSettings(id){
   if(cs.combineMin == null) cs.combineMin = 2;
   if(cs.combineMax == null) cs.combineMax = 3;
   if(cs.combineSeparator == null) cs.combineSeparator = ',';
+  if(cs.quizReplyMin == null) cs.quizReplyMin = 2;
+  if(cs.quizReplyMax == null) cs.quizReplyMax = 4;
   return cs;
 }
 
@@ -1853,6 +1875,7 @@ function openFullSettings() {
         <div class="set-row" id="fsBgRemove" style="${cs.bg?'':'display:none;'}"><span style="color:#ffd0d8">恢复默认背景</span><span class="set-val">›</span></div>
         <div class="set-row" id="fsBgDimRow" style="${cs.bg?'':'display:none;'}"><span>背景暗化</span><div style="display:flex;align-items:center;gap:8px"><input type="range" id="fsBgDim" min="0" max="80" value="${cs.bgDim||0}"><span id="fsBgDimVal" style="width:30px;font-size:12px;text-align:right">${cs.bgDim||0}</span></div></div>
         <div class="set-row" id="fsCardJump" style="cursor:pointer;"><span>字卡库</span><span class="set-val">管理字卡与表情 ›</span></div>
+        <div class="set-row" onclick="openClearChatHistoryModal('${cid}')" style="cursor:pointer;"><span style="color:#ffd0d8">清空聊天记录</span><span class="set-val">可选日期 ›</span></div>
       </div>
       <div class="sec-title">自定义美化 CSS</div>
       <div class="card-box">
@@ -1908,13 +1931,13 @@ function openFullSettings() {
         <div class="set-row" style="flex-direction:column;align-items:flex-start;gap:6px;"><span style="font-size:13px;">金额池（元，逗号分隔）</span><input class="field-input" id="fsRedPacketPool" placeholder="5.20, 13.14, 52, 99" value="${(S.settings.redPacketPool||[]).join(', ')}" style="width:100%;height:38px;margin-bottom:0;font-size:13px;"></div>
       </div>
       <div class="sec-title">后台运行</div>
-      <div class="card-box"><div class="set-row"><span>后台保活</span><div class="switch ${S.settings.keepAlive?'on':''}" id="fsKeepAlive"></div></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">开启后应用会尝试保持后台连接（无声音频 + Wake Lock + MediaSession + Worker）。<br>受移动系统限制，<b>无法保证</b>完全关闭或长时间后台后仍实时收消息。切回前台时会立即补发。</div></div></div>
+      <div class="card-box"><div class="set-row"><span>后台保活</span><div class="switch ${S.settings.keepAlive?'on':''}" id="fsKeepAlive"></div></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">开启后应用会尝试保持后台连接（Worker 心跳 + 静音视频流 + AudioContext + WebRTC + Wake Lock + MediaSession）。<br>受移动系统限制，<b>无法保证</b>完全关闭或长时间后台后仍实时收消息。切回前台时会立即补发。</div></div></div>
       <div class="sec-title">消息推送</div>
       <div class="card-box"><div class="set-row"><span>开启系统通知</span><div class="switch ${S.settings.pushEnabled?'on':''}" id="fsPushEnabled"></div></div><div class="set-row" onclick="testPush()" style="cursor:pointer;"><span>测试推送</span><span class="set-val">发送一条测试通知 ›</span></div></div>
       <div class="sec-title">意见反馈</div>
       <div class="card-box"><div class="set-row" onclick="closeFullSettings();openFeedback()" style="cursor:pointer;"><span>反馈与建议</span><span class="set-val">告诉我们你的想法 ›</span></div></div>
       <div class="sec-title">数据管理</div>
-      <div class="card-box"><div class="set-row" onclick="exportData()" style="cursor:pointer;"><span>导出数据</span><span class="set-val">下载备份文件 ›</span></div><div class="set-row" onclick="importData()" style="cursor:pointer;"><span>导入数据</span><span class="set-val">从备份文件恢复 ›</span></div></div>
+      <div class="card-box"><div class="set-row" onclick="exportData()" style="cursor:pointer;"><span>导出数据</span><span class="set-val">下载备份文件 ›</span></div><div class="set-row" onclick="importData()" style="cursor:pointer;"><span>导入数据</span><span class="set-val">从备份文件恢复 ›</span></div><div class="set-row" onclick="closeFullSettings();openClearChatHistoryModal()" style="cursor:pointer;"><span>清空聊天记录（可选日期）</span><span class="set-val">仅删除聊天消息 ›</span></div></div>
       <div class="sec-title">字卡库</div>
       <div class="card-box"><div class="set-row" onclick="closeFullSettings();go('cards')" style="cursor:pointer;"><span>管理字卡 / 表情包 / Emoji</span><span class="set-val">›</span></div></div>
       <div style="height:24px"></div>
@@ -2205,9 +2228,7 @@ function acceptListenInvite(msgId){
   m.accepted = true;
   S.listenWith = true;
   msgs.forEach(x => {
-    if(x.type === 'listenInvite' && x.accepted === null && x.id !== msgId){
-      x.accepted = true;
-    }
+    if(x.type === 'listenInvite' && x.accepted === null && x.id !== msgId){ x.accepted = true; }
   });
   save();
   pushMsg(cid, {from:'me', type:'pat', text:'你接受了对方的一起听邀请'});
@@ -2308,7 +2329,6 @@ function refundRedPacket(msgId){
   if(chatCtx.id === cid && stack[stack.length-1].name === 'chatRoom') refreshChat(); else updateBadges();
 }
 
-/* ============ 分享音乐 ============ */
 function openMusicPicker(){
   const cid = chatCtx.id; if(!cid) return;
   if(!S.songs.length){ showToast('曲库暂无歌曲，去「一起听」添加吧'); return; }
@@ -2539,6 +2559,7 @@ function pushMsg(cid,msg){
   }
 
   if(msg.from === 'mj'){
+    try { syncSnapshotToSW(cid); } catch(e) {}
     const c = getContact(cid);
     const title = c ? (c.name || c.remark || '好友') : '新消息';
     const av = c ? avatarSrc(c.avatar, title) : '';
@@ -2552,9 +2573,7 @@ function pushMsg(cid,msg){
 
     const inThisChat = isCurrentChat && !document.hidden;
     if(!document.hidden){
-      if(!inThisChat){
-        showHeadsUpNotice(av, title, preview, () => go('chatRoom', {id: cid}));
-      }
+      if(!inThisChat){ showHeadsUpNotice(av, title, preview, () => go('chatRoom', {id: cid})); }
     } else {
       enqueueNotification(title, preview, 'libum-chat-' + cid, { cid: cid });
     }
@@ -2626,7 +2645,8 @@ function mjRespond(cid){
   showTyping();
   const r = Math.random();
   const hasPendingInvite = (S.chats[cid]||[]).some(x => x.type === 'listenInvite' && x.accepted === null);
-  const hasSongs = S.songs && S.songs.length > 0;
+  const playableSongs = (S.songs || []).filter(s => s && s.url);
+  const hasSongs = playableSongs.length > 0;
   const willShareMusic = r < 0.12 && hasSongs;
   const willSendRedPacket = r >= 0.12 && r < 0.28 && !S.listenWith;
   const willInviteListen = r >= 0.28 && r < 0.42 && !S.listenWith && !hasPendingInvite;
@@ -2636,7 +2656,7 @@ function mjRespond(cid){
     setTimeout(() => {
       hideTyping();
       if(isFirst && willShareMusic){
-        const song = pick(S.songs);
+        const song = playableSongs[Math.floor(Math.random() * playableSongs.length)];
         if(song){
           pushMsg(cid, {
             from:'mj', type:'music',
@@ -2705,8 +2725,8 @@ function doPat(id){
 }
 function simulateOtherPat(){
   if(!S.contacts.length) return;
-  if(Math.random() > 0.35) return;
-  const c = pick(S.contacts);
+  if(Math.random() > 0.5) return;
+  const c = pickObj(S.contacts);
   if(!c) return;
   const myName = S.user.name || '我';
   const text = `${c.name} ${patText(pick(S.cards.pat), myName)}`;
@@ -2724,7 +2744,7 @@ function startCall(){
   const c=getContact(chatCtx.id); if(!c) { showToast('联系人不存在'); return; }
   call={ id: c.id, name: c.name || '未知', avatar: c.avatar || '', status:'calling', muted:false, video:false, collapsed:false, secs:0, px:null, py:null };
   renderCall();
-  const accept=Math.random()<0.75;
+  const accept=Math.random()<0.85;
   setTimeout(()=>{
     if(!call||call.status!=='calling')return;
     if(accept){
@@ -2733,7 +2753,15 @@ function startCall(){
     }else{ call.status='rejected';renderCall(); setTimeout(endCall,1200); }
   },rnd(2500,5200));
 }
-function incomingCall(){ if(call)return; if(!S.contacts.length)return; const c = pick(S.contacts); if (!c) return; call={ id: c.id, name: c.name || '未知', avatar: c.avatar || '', status:'incoming', muted:false, video:false, collapsed:false, secs:0, px:null, py:null }; renderCall(); }
+function incomingCall(){
+  if(call) return;
+  if(!S.contacts.length) return;
+  const c = pickObj(S.contacts);
+  if(!c) return;
+  call={ id: c.id, name: c.name || '未知', avatar: c.avatar || '', status:'incoming', muted:false, video:false, collapsed:false, secs:0, px:null, py:null };
+  renderCall();
+  if(document.hidden){ enqueueNotification((c.name || '对方') + ' 来电', '邀请你通话', 'libum-call', {}); }
+}
 function startCallTimer(){ stopCallTimer(); callTimer=setInterval(()=>{ if(!call||call.status!=='connected')return; call.secs++; const el=$('#callStatus'); if(el)el.textContent=fmtDur(call.secs); const pillEl=$('#callPillTime'); if(pillEl)pillEl.textContent=fmtDur(call.secs); },1000); }
 function stopCallTimer(){if(callTimer){clearInterval(callTimer);callTimer=null;}}
 function fmtDur(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
@@ -2789,7 +2817,9 @@ function openQuizPanel(){
   const m=openModal(`<div class="modal-title">问卷</div><div class="chip-row"><div class="chip active" id="qNew">新建问卷</div><div class="chip" id="qLib">问卷库</div></div><div id="qBody"></div>`);
   const body=m.querySelector('#qBody');
   const renderNew=()=>{
-    body.innerHTML=`<input class="field-input" id="qTitle" placeholder="问卷标题 / 问题"><div class="field-label">回复方式</div><div class="chip-row" id="qModes"><div class="chip active" data-mode="card">字卡回复</div><div class="chip" data-mode="single">单选题</div><div class="chip" data-mode="multi">多选题</div></div><div id="qOpts"></div><div class="modal-actions"><button class="btn ghost" onclick="closeModal()">取消</button><button class="btn" id="qSend">发送</button></div>`;
+    const cid = chatCtx.id;
+    const cs = cid ? getChatSettings(cid) : { quizReplyMin: 2, quizReplyMax: 4 };
+    body.innerHTML=`<input class="field-input" id="qTitle" placeholder="问卷标题 / 问题"><div class="field-label">回复方式</div><div class="chip-row" id="qModes"><div class="chip active" data-mode="card">字卡回复</div><div class="chip" data-mode="single">单选题</div><div class="chip" data-mode="multi">多选题</div></div><div id="qOpts"></div><div class="field-label">对方回复时间（秒）</div><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input class="field-input" id="qReplyMin" type="number" min="1" value="${cs.quizReplyMin == null ? 2 : cs.quizReplyMin}" style="width:70px;height:38px;margin-bottom:0;text-align:center;padding:0 6px"><span style="opacity:.55">~</span><input class="field-input" id="qReplyMax" type="number" min="1" value="${cs.quizReplyMax == null ? 4 : cs.quizReplyMax}" style="width:70px;height:38px;margin-bottom:0;text-align:center;padding:0 6px"><span style="font-size:11px;opacity:.55;margin-left:2px;">秒</span></div><div style="font-size:11px;opacity:.55;line-height:1.5;margin-bottom:8px;">每个联系人独立保存，下次打开自动回显</div><div class="modal-actions"><button class="btn ghost" onclick="closeModal()">取消</button><button class="btn" id="qSend">发送</button></div>`;
     let mode='card';let opts=[];
     const optsWrap=body.querySelector('#qOpts');
     const drawOpts=()=>{
@@ -2800,13 +2830,32 @@ function openQuizPanel(){
       const add=optsWrap.querySelector('#addOpt'); if(add)add.onclick=()=>{opts.push('');drawOpts();};
     };
     body.querySelectorAll('#qModes .chip').forEach(ch=>{ ch.onclick=()=>{ body.querySelectorAll('#qModes .chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active');mode=ch.dataset.mode; if(mode!=='card'&&opts.length===0)opts=['','']; drawOpts(); }; });
-    body.querySelector('#qSend').onclick=()=>{ const title=body.querySelector('#qTitle').value.trim(); if(!title){showToast('请填写问题');return;} const options=mode==='card'?[]:opts.map(o=>o.trim()).filter(Boolean); if(mode!=='card'&&options.length<2){showToast('至少两个选项');return;} const quiz={id:uid(),title,mode,options}; S.quizzes.push(quiz);save(); sendQuiz(quiz,'me'); closeModal(); };
+    body.querySelector('#qSend').onclick=()=>{
+      const title=body.querySelector('#qTitle').value.trim();
+      if(!title){showToast('请填写问题');return;}
+      const options=mode==='card'?[]:opts.map(o=>o.trim()).filter(Boolean);
+      if(mode!=='card'&&options.length<2){showToast('至少两个选项');return;}
+      if(cid){
+        const liveCs = getChatSettings(cid);
+        let rMin = parseInt(body.querySelector('#qReplyMin').value, 10);
+        let rMax = parseInt(body.querySelector('#qReplyMax').value, 10);
+        if(isNaN(rMin) || rMin < 1) rMin = 2;
+        if(isNaN(rMax) || rMax < 1) rMax = 4;
+        if(rMax < rMin) rMax = rMin;
+        liveCs.quizReplyMin = rMin;
+        liveCs.quizReplyMax = rMax;
+        save();
+      }
+      const quiz={id:uid(),title,mode,options};
+      S.quizzes.push(quiz);save();
+      sendQuiz(quiz,'me'); closeModal();
+    };
     drawOpts();
   };
   const renderLib=()=>{
     if(!S.quizzes.length){body.innerHTML=`<div class="empty" style="padding:30px 10px">问卷库还是空的</div>`;return;}
     body.innerHTML=S.quizzes.map(q=>`<div class="list-item" style="cursor:pointer" onclick="sendQuizById('${q.id}')"><div class="li-main"><div class="li-name" style="font-size:13px">${esc(q.title)}</div><div class="li-sub">${q.mode==='card'?'字卡回复':q.mode==='single'?'单选题':'多选题'}</div></div><span style="font-size:11px;opacity:.6">发送</span></div>`).join('')+`<div class="modal-actions"><button class="btn" id="qDraw">让对方出题</button></div>`;
-    const d=body.querySelector('#qDraw'); if(d)d.onclick=()=>{const q=pick(S.quizzes);sendQuiz(q,'mj');closeModal();};
+    const d=body.querySelector('#qDraw'); if(d)d.onclick=()=>{const q=pickObj(S.quizzes);if(!q)return;sendQuiz(q,'mj');closeModal();};
   };
   m.querySelector('#qNew').onclick=function(){ m.querySelectorAll('.chip').forEach(x=>x.classList.remove('active')); this.classList.add('active');renderNew(); };
   m.querySelector('#qLib').onclick=function(){ m.querySelectorAll('.chip').forEach(x=>x.classList.remove('active')); this.classList.add('active');renderLib(); };
@@ -2818,13 +2867,16 @@ function sendQuiz(quiz,from){
   const msg={id:uid(),from,type:'quiz',quiz:clone(quiz),answer:null};
   pushMsg(cid,msg); refreshChat();
   if(from==='me'){
+    const cs = getChatSettings(cid);
+    const minMs = Math.max(200, (cs.quizReplyMin || 2) * 1000);
+    const maxMs = Math.max(minMs, (cs.quizReplyMax || 4) * 1000);
     setTimeout(()=>{
       const msgs=S.chats[cid]; const target=msgs.find(x=>x.id===msg.id); if(!target)return;
       if(quiz.mode==='card'){ const t=pick(S.cards.quiz)||'好的。'; pushMsg(cid,{from:'mj',type:'text',text:t}); }
       else { const idxs=quiz.options.map((_,i)=>i); let chosen; if(quiz.mode==='single'){chosen=[pick(idxs)];} else{chosen=idxs.filter(()=>Math.random()<0.5);if(!chosen.length)chosen=[pick(idxs)];} target.answer=chosen; pushMsg(cid,{from:'mj',type:'text',text:'我选：'+chosen.map(i=>quiz.options[i]).join('、')}); }
       save();
       if(chatCtx.id===cid&&stack[stack.length-1].name==='chatRoom')refreshChat();
-    },rnd(1800,3600));
+    }, rnd(minMs, maxMs));
   }
 }
 function answerQuiz(mid,idx){
@@ -3010,15 +3062,17 @@ function checkAllTimers(){
 
   if (S.settings.nextLetterTime && now >= S.settings.nextLetterTime) {
     if (S.contacts.length) {
-      const c = pick(S.contacts);
-      const body = composeLetterBody();
-      S.letters.push({id:uid(),cid:c.id,from:'mj',title:'一封来信',body,time:now,read:false});
-      S.unread.letters++;
-      save();
-      const title = (c.name || c.remark || '好友') + ' 的来信';
-      enqueueNotification(title, body, 'libum-letter', {});
-      if(!document.hidden){ showHeadsUpNotice(avatarSrc(c.avatar, c.name), title, body, () => go('mail')); }
-      if (stack[stack.length-1].name === 'mail') render(); else updateBadges();
+      const c = pickObj(S.contacts);
+      if (c) {
+        const body = composeLetterBody();
+        S.letters.push({id:uid(),cid:c.id,from:'mj',title:'一封来信',body,time:now,read:false});
+        S.unread.letters++;
+        save();
+        const title = (c.name || c.remark || '好友') + ' 的来信';
+        enqueueNotification(title, body, 'libum-letter', {});
+        if(!document.hidden){ showHeadsUpNotice(avatarSrc(c.avatar, c.name), title, body, () => go('mail')); }
+        if (stack[stack.length-1].name === 'mail') render(); else updateBadges();
+      }
     }
     const minH = S.settings.letterMinHours || 2; const maxH = S.settings.letterMaxHours || 6;
     S.settings.nextLetterTime = now + rnd(minH * 3600000, maxH * 3600000); save();
@@ -3040,13 +3094,15 @@ function checkAllTimers(){
   if (!S.settings.nextVisitorTime) { S.settings.nextVisitorTime = now + rnd(vRange.minH * 3600000, vRange.maxH * 3600000); save(); }
   else if (now >= S.settings.nextVisitorTime) {
     if (S.contacts.length) {
-      const c = pick(S.contacts);
-      const entry = { id: c.id, time: now };
-      if (Math.random() < 0.45) { const t = pick(S.cards.chat); if (t) entry.note = t; }
-      S.visitors.push(entry);
-      if (S.visitors.length > 80) S.visitors = S.visitors.slice(-80);
-      save();
-      if (stack[stack.length - 1].name === 'visitors') render();
+      const c = pickObj(S.contacts);
+      if (c) {
+        const entry = { id: c.id, time: now };
+        if (Math.random() < 0.45) { const t = pick(S.cards.chat); if (t) entry.note = t; }
+        S.visitors.push(entry);
+        if (S.visitors.length > 80) S.visitors = S.visitors.slice(-80);
+        save();
+        if (stack[stack.length - 1].name === 'visitors') render();
+      }
     }
     S.settings.nextVisitorTime = now + rnd(vRange.minH * 3600000, vRange.maxH * 3600000); save();
   }
@@ -3114,21 +3170,23 @@ setInterval(() => {
   if(stack[stack.length-1].name === 'moments') render();
 }, 60000);
 
-setInterval(() => { simulateOtherPat(); }, 20000);
+setInterval(() => { simulateOtherPat(); }, 15000);
 
 setInterval(() => {
   const now = Date.now();
   if (S.settings.nextLetterTime && now >= S.settings.nextLetterTime) {
     if (S.contacts.length) {
-      const c = pick(S.contacts);
-      const body = composeLetterBody();
-      S.letters.push({id:uid(),cid:c.id,from:'mj',title:'一封来信',body,time:now,read:false});
-      S.unread.letters++;
-      save();
-      const title = (c.name || c.remark || '好友') + ' 的来信';
-      enqueueNotification(title, body, 'libum-letter', {});
-      if(!document.hidden){ showHeadsUpNotice(avatarSrc(c.avatar, c.name), title, body, () => go('mail')); }
-      if (stack[stack.length-1].name === 'mail') render(); else updateBadges();
+      const c = pickObj(S.contacts);
+      if (c) {
+        const body = composeLetterBody();
+        S.letters.push({id:uid(),cid:c.id,from:'mj',title:'一封来信',body,time:now,read:false});
+        S.unread.letters++;
+        save();
+        const title = (c.name || c.remark || '好友') + ' 的来信';
+        enqueueNotification(title, body, 'libum-letter', {});
+        if(!document.hidden){ showHeadsUpNotice(avatarSrc(c.avatar, c.name), title, body, () => go('mail')); }
+        if (stack[stack.length-1].name === 'mail') render(); else updateBadges();
+      }
     }
     const minH = S.settings.letterMinHours || 2; const maxH = S.settings.letterMaxHours || 6;
     S.settings.nextLetterTime = now + rnd(minH * 3600000, maxH * 3600000); save();
@@ -3155,13 +3213,15 @@ setInterval(() => {
   if (!S.settings.nextVisitorTime) { S.settings.nextVisitorTime = now + rnd(vR.minH * 3600000, vR.maxH * 3600000); save(); return; }
   if (now >= S.settings.nextVisitorTime) {
     if (S.contacts.length) {
-      const c = pick(S.contacts);
-      const entry = { id: c.id, time: now };
-      if (Math.random() < 0.45) { const t = pick(S.cards.chat); if (t) entry.note = t; }
-      S.visitors.push(entry);
-      if (S.visitors.length > 80) S.visitors = S.visitors.slice(-80);
-      save();
-      if (stack[stack.length - 1].name === 'visitors') render();
+      const c = pickObj(S.contacts);
+      if (c) {
+        const entry = { id: c.id, time: now };
+        if (Math.random() < 0.45) { const t = pick(S.cards.chat); if (t) entry.note = t; }
+        S.visitors.push(entry);
+        if (S.visitors.length > 80) S.visitors = S.visitors.slice(-80);
+        save();
+        if (stack[stack.length - 1].name === 'visitors') render();
+      }
     }
     S.settings.nextVisitorTime = now + rnd(vR.minH * 3600000, vR.maxH * 3600000); save();
   }
@@ -3188,7 +3248,7 @@ function viewVisitors(){
   const v = S.visitors.filter(x => getContact(x.id)).sort((a,b)=>b.time-a.time);
   return `<div class="page"><div class="subhead"><button class="icon-btn" onclick="back()">${ICONS.back}</button><div class="subhead-title">访客</div><div style="width:32px"></div></div><div class="page-scroll">${v.length===0?`<div class="empty">${ICONS.eye}<div>还没有访客记录</div></div>`:v.map(x=>{ const c = getContact(x.id); return `<div class="list-item" style="flex-direction:column;align-items:stretch;gap:0;"><div style="display:flex;align-items:center;gap:13px;"><img class="li-avatar" src="${avatarSrc(c.avatar,c.name)}"><div class="li-main"><div class="li-name">${esc(c.name)}</div><div class="li-sub">${timeAgo(x.time)}</div></div></div>${x.note?`<div style="margin-top:10px;padding:9px 12px;background:rgba(255,255,255,.12);border-radius:12px;font-size:12.5px;line-height:1.55;">${esc(x.note)}</div>`:''}</div>`; }).join('')}</div></div>`;
 }
-function addVisitor(){ if(!S.contacts.length)return; const c=pick(S.contacts); const entry = {id:c.id,time:Date.now()}; if(Math.random()<0.45){ const t = pick(S.cards.chat); if(t) entry.note = t; } S.visitors.push(entry); if(S.visitors.length>80)S.visitors=S.visitors.slice(-80); save(); }
+function addVisitor(){ if(!S.contacts.length)return; const c=pickObj(S.contacts); if(!c)return; const entry = {id:c.id,time:Date.now()}; if(Math.random()<0.45){ const t = pick(S.cards.chat); if(t) entry.note = t; } S.visitors.push(entry); if(S.visitors.length>80)S.visitors=S.visitors.slice(-80); save(); }
 
 function composeLetterBody(){
   const pools = [];
@@ -3364,12 +3424,9 @@ function addSongAndPlay(song){
 async function parseNeteaseId(input){
   if(!input) return '';
   let s = String(input).trim();
-
   const urlMatch = s.match(/(https?:\/\/[^\s]+)/);
   if (urlMatch) s = urlMatch[1];
-
   if(/^\d+$/.test(s)) return s;
-
   if(/163cn\.(tv|link)\//i.test(s)){
     try{
       const redirectRes = await fetchWithTimeout(s, 8000, { method: 'HEAD', redirect: 'follow' });
@@ -3381,19 +3438,10 @@ async function parseNeteaseId(input){
       }catch(e2){}
     }
   }
-
-  let m = s.match(/[?&#]id=(\d+)/);
-  if (m) return m[1];
-
-  m = s.match(/playlist\/(\d+)/);
-  if (m) return m[1];
-
-  m = s.match(/discover\/toplist\/(\d+)/);
-  if (m) return m[1];
-
-  m = s.match(/(\d{6,})/);
-  if (m) return m[1];
-
+  let m = s.match(/[?&#]id=(\d+)/); if (m) return m[1];
+  m = s.match(/playlist\/(\d+)/); if (m) return m[1];
+  m = s.match(/discover\/toplist\/(\d+)/); if (m) return m[1];
+  m = s.match(/(\d{6,})/); if (m) return m[1];
   return '';
 }
 
@@ -3469,9 +3517,7 @@ function openImportPlaylist(){
     status.textContent = '⏳ 正在识别链接…';
     listEl.innerHTML = '';
     let pid = '';
-    try{
-      pid = await parseNeteaseId(raw);
-    }catch(e){ pid = ''; }
+    try{ pid = await parseNeteaseId(raw); }catch(e){ pid = ''; }
     if(!pid){
       if(raw.includes('163cn.tv') || raw.includes('163cn.link')){
         status.innerHTML = '❌ 短链接解析失败<br><span style="font-size:11px;opacity:.7;line-height:1.5;display:inline-block;margin-top:4px;">当前浏览器（如微信/QQ）可能限制了网络跳转。<br>👉 请复制链接到手机系统浏览器打开后，获取包含 "id=xxx" 的完整网址再粘贴导入。</span>';
@@ -3502,22 +3548,10 @@ function openImportPlaylist(){
           </div>
         </div>`).join('');
     listEl.querySelectorAll('.search-result-item').forEach(el => {
-      el.onclick = () => {
-        const s = songs[+el.dataset.i];
-        addSongAndPlay(s);
-        showToast('正在播放：' + s.name);
-      };
+      el.onclick = () => { const s = songs[+el.dataset.i]; addSongAndPlay(s); showToast('正在播放：' + s.name); };
     });
-    listEl.querySelector('#plAddAll').onclick = () => {
-      const n = addSongsToLibrary(songs);
-      showToast(n ? `已加入 ${n} 首到曲库` : '这些歌曲都已在曲库中');
-    };
-    listEl.querySelector('#plPlayAll').onclick = () => {
-      addSongsToLibrary(songs);
-      addSongAndPlay(songs[0]);
-      closeModal();
-      showToast('正在播放：' + songs[0].name);
-    };
+    listEl.querySelector('#plAddAll').onclick = () => { const n = addSongsToLibrary(songs); showToast(n ? `已加入 ${n} 首到曲库` : '这些歌曲都已在曲库中'); };
+    listEl.querySelector('#plPlayAll').onclick = () => { addSongsToLibrary(songs); addSongAndPlay(songs[0]); closeModal(); showToast('正在播放：' + songs[0].name); };
   };
 }
 
@@ -3638,10 +3672,7 @@ function setPlayMode(mode){
   S.settings.playMode = mode;
   save();
   const btn = document.getElementById('playModeBtn');
-  if (btn) {
-    btn.innerHTML = ICONS[PLAY_MODES[mode].icon];
-    btn.title = PLAY_MODES[mode].label;
-  }
+  if (btn) { btn.innerHTML = ICONS[PLAY_MODES[mode].icon]; btn.title = PLAY_MODES[mode].label; }
   showToast('已切换：' + PLAY_MODES[mode].label);
 }
 
@@ -3653,10 +3684,7 @@ function cyclePlayMode(){
   S.settings.playMode = next;
   save();
   const btn = document.getElementById('playModeBtn');
-  if (btn) {
-    btn.innerHTML = ICONS[PLAY_MODES[next].icon];
-    btn.title = PLAY_MODES[next].label;
-  }
+  if (btn) { btn.innerHTML = ICONS[PLAY_MODES[next].icon]; btn.title = PLAY_MODES[next].label; }
   showToast(PLAY_MODES[next].label);
 }
 
@@ -3707,9 +3735,7 @@ function updateListenUI(){
 }
 function bindListen(){
   const searchBtn = $('#searchBtn');
-  if (searchBtn) {
-    searchBtn.onclick = searchNetease;
-  }
+  if (searchBtn) searchBtn.onclick = searchNetease;
 
   const imp = $('#importBtn');
   if (imp) {
@@ -3867,8 +3893,8 @@ function rateToRange(rate, minAtFull, maxAtFull, minAtZero, maxAtZero){
   return { minH, maxH };
 }
 function callIntervalRange(){
-  const rate = (S.settings.callRate == null ? 50 : S.settings.callRate);
-  return rateToRange(rate, 1, 6, 24, 72);
+  const rate = (S.settings.callRate == null ? 70 : S.settings.callRate);
+  return rateToRange(rate, 0.5, 2, 10, 30);
 }
 function visitorIntervalRange(){
   const rate = (S.settings.visitorRate == null ? 50 : S.settings.visitorRate);
@@ -3882,7 +3908,7 @@ function fmtHourLabel(h){
 function fmtHourRange(r){ return fmtHourLabel(r.minH) + '~' + fmtHourLabel(r.maxH); }
 
 function openCallSettingsModal(){
-  const rate = (S.settings.callRate == null ? 50 : S.settings.callRate);
+  const rate = (S.settings.callRate == null ? 70 : S.settings.callRate);
   const m = openModal(`<div class="modal-title">来电设置</div>
     <div class="set-row" style="padding:10px 0 14px;"><span>允许对方来电</span><div class="switch ${S.settings.callEnabled?'on':''}" id="callEnableSw"></div></div>
     <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
@@ -3910,7 +3936,7 @@ function openCallSettingsModal(){
   const update = () => {
     const v = Number(range.value);
     valEl.textContent = v + '%';
-    descEl.textContent = fmtHourRange(rateToRange(v, 1, 6, 24, 72));
+    descEl.textContent = fmtHourRange(rateToRange(v, 0.5, 2, 10, 30));
   };
   range.oninput = update;
 
@@ -3919,15 +3945,9 @@ function openCallSettingsModal(){
     S.settings.callEnabled = sw.classList.contains('on');
     S.settings.callRate = Number(range.value);
     if (S.settings.callEnabled) {
-      if (!wasEnabled) {
-        S.settings.nextCallTime = Date.now() + rnd(60 * 1000, 180 * 1000);
-      } else {
-        const r = callIntervalRange();
-        S.settings.nextCallTime = Date.now() + rnd(r.minH * 3600000, r.maxH * 3600000);
-      }
-    } else {
-      S.settings.nextCallTime = null;
-    }
+      if (!wasEnabled) { S.settings.nextCallTime = Date.now() + rnd(20 * 1000, 60 * 1000); }
+      else { const r = callIntervalRange(); S.settings.nextCallTime = Date.now() + rnd(r.minH * 3600000, r.maxH * 3600000); }
+    } else { S.settings.nextCallTime = null; }
     closeModal(); save(); render();
     showToast(S.settings.callEnabled ? '对方来电已开启' : '对方来电已关闭');
   };
@@ -3936,11 +3956,8 @@ function openCallSettingsModal(){
 function toggleCallEnabled(el){
   el.classList.toggle('on');
   S.settings.callEnabled = el.classList.contains('on');
-  if (S.settings.callEnabled) {
-    S.settings.nextCallTime = Date.now() + rnd(60 * 1000, 180 * 1000);
-  } else {
-    S.settings.nextCallTime = null;
-  }
+  if (S.settings.callEnabled) { S.settings.nextCallTime = Date.now() + rnd(20 * 1000, 60 * 1000); }
+  else { S.settings.nextCallTime = null; }
   save(); render();
   showToast(S.settings.callEnabled ? '对方来电已开启（稍后会打来）' : '对方来电已关闭');
 }
@@ -3969,9 +3986,7 @@ async function installPWA(){
       直接双击本地 HTML 文件（file://）打开时，无法安装到桌面。
     </div>
     <div class="modal-actions"><button class="btn" onclick="closeModal()">知道了</button></div>`);
-}
-
-function viewProfile(){
+}function viewProfile(){
   const u=S.user,st=S.settings;
   return `<div class="page"><div class="subhead"><div class="subhead-title">个人主页</div><div style="width:32px"></div></div>
     <div class="page-scroll">
@@ -4012,7 +4027,7 @@ function viewProfile(){
       <div class="sec-title">来电</div>
       <div class="card-box">
         <div class="set-row"><span>允许对方来电</span><div class="switch ${st.callEnabled?'on':''}" onclick="toggleCallEnabled(this)"></div></div>
-        <div class="set-row" onclick="openCallSettingsModal()" style="cursor:pointer;"><span>来电频率</span><span class="set-val">${st.callEnabled ? (st.callRate==null?50:st.callRate) + '% · ' + fmtHourRange(callIntervalRange()) : '已关闭'} ›</span></div>
+        <div class="set-row" onclick="openCallSettingsModal()" style="cursor:pointer;"><span>来电频率</span><span class="set-val">${st.callEnabled ? (st.callRate==null?70:st.callRate) + '% · ' + fmtHourRange(callIntervalRange()) : '已关闭'} ›</span></div>
         <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">关闭时对方不会主动打来；开启后按设定频率随机来电。</div></div>
       </div>
       <div class="sec-title">桌面组件</div>
@@ -4035,14 +4050,18 @@ function viewProfile(){
         <div class="set-row"><span>后台保活</span><div class="switch ${st.keepAlive?'on':''}" id="profileKeepAlive"></div></div>
         <div class="set-row"><span>系统通知推送</span><div class="switch ${st.pushEnabled?'on':''}" onclick="togglePushSwitch(this)"></div></div>
         <div class="set-row" onclick="testPush()" style="cursor:pointer;"><span>测试推送</span><span class="set-val">发送测试通知 ›</span></div>
-        <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.65;">💡 开启后台保活 + 系统通知后，应用切到后台会尽力保持连接并弹出提醒。<br>桌面 Chrome/Edge 保活可靠；Android 部分有效；<b>iOS 因系统限制，保活效果有限，仅能收到部分通知</b>。<br>切回前台会立即补发所有过期消息。</div></div>
+        <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.65;">💡 开启后台保活 + 系统通知后，应用切到后台会尽力保持连接并弹出提醒（Worker 心跳 + 静音视频流 + AudioContext + WebRTC + MediaSession）。<br>桌面 Chrome/Edge 保活可靠；Android 部分有效；<b>iOS 因系统限制，保活效果有限，仅能收到部分通知</b>。<br>切回前台会立即补发所有过期消息。</div></div>
       </div>
       <div class="sec-title">应用安装</div>
       <div class="card-box"><div class="set-row" onclick="installPWA()" style="cursor:pointer;"><span>添加到桌面</span><span class="set-val">${deferredInstallPrompt ? '可立即安装 ›' : '查看安装方法 ›'}</span></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">Edge / Chrome 需通过 https 或 localhost 访问才能安装为应用。<br>卸载时<b>务必取消勾选「删除数据」</b>，否则本机数据会被连带清空。</div></div></div>
       <div class="sec-title">意见反馈</div>
       <div class="card-box"><div class="set-row" onclick="openFeedback()" style="cursor:pointer;"><span>反馈与建议</span><span class="set-val">告诉我们你的想法 ›</span></div></div>
       <div class="sec-title">数据管理</div>
-      <div class="card-box"><div class="set-row" onclick="exportData()" style="cursor:pointer;"><span>导出数据</span><span class="set-val">下载备份文件 ›</span></div><div class="set-row" onclick="importData()" style="cursor:pointer;"><span>导入数据</span><span class="set-val">从备份文件恢复 ›</span></div></div>
+      <div class="card-box">
+        <div class="set-row" onclick="exportData()" style="cursor:pointer;"><span>导出数据</span><span class="set-val">下载备份文件 ›</span></div>
+        <div class="set-row" onclick="importData()" style="cursor:pointer;"><span>导入数据</span><span class="set-val">从备份文件恢复 ›</span></div>
+        <div class="set-row" onclick="openClearChatHistoryModal()" style="cursor:pointer;"><span>清空聊天记录（可选日期）</span><span class="set-val">仅删除聊天消息 ›</span></div>
+      </div>
       <div class="sec-title">数据</div>
       <div class="card-box"><div class="set-row" onclick="resetAll()" style="cursor:pointer;"><span style="color:#ffd0d8">清空全部数据</span><span class="set-val">›</span></div></div>
       <div style="height:20px"></div>
@@ -4076,6 +4095,99 @@ function openRedPacketPoolModal(){
   const m = openModal(`<div class="modal-title">红包金额池</div><div class="field-label">金额（元，逗号分隔）</div><input class="field-input" id="rpPoolInput" value="${esc(pool)}" style="width:100%;height:44px;margin-bottom:12px;font-size:14px;"><div class="modal-actions"><button class="btn ghost" onclick="closeModal()">取消</button><button class="btn" id="rpPoolSave">保存</button></div>`);
   m.querySelector('#rpPoolSave').onclick = () => { const str = m.querySelector('#rpPoolInput').value; const parsed = str.split(/[,，\s]+/).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0); if(!parsed.length){ showToast('请输入有效金额'); return; } S.settings.redPacketPool = parsed; save(); closeModal(); render(); showToast('金额池已保存'); };
 }
+
+function openClearChatHistoryModal(cid){
+  const targetCid = cid || null;
+  const d = new Date();
+  const todayStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  const m = openModal(`
+    <div class="modal-title">清空聊天记录</div>
+    <div style="font-size:11.5px;opacity:.68;line-height:1.7;margin-bottom:12px;padding:10px 12px;background:rgba(255,255,255,.08);border-radius:12px;">
+      仅删除聊天消息。联系人、朋友圈、信件、字卡、访客等其他数据不受影响。
+    </div>
+    <div class="field-label">选择日期</div>
+    <input class="field-input" id="clrDate" type="date" value="${todayStr}" style="color:#fff">
+    <div class="field-label">清除范围</div>
+    <div class="chip-row" id="clrModes">
+      <div class="chip active" data-mode="before">该日期之前</div>
+      <div class="chip" data-mode="day">仅该日期</div>
+      <div class="chip" data-mode="after">该日期之后</div>
+    </div>
+    <div id="clrInfo" style="font-size:12px;opacity:.72;margin:8px 0 4px;line-height:1.6;"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">取消</button>
+      <button class="btn" id="clrConfirm" style="background:rgba(255,90,110,.7);border-color:rgba(255,120,140,.55);">清空</button>
+    </div>
+  `);
+  let mode = 'before';
+  const dateInput = m.querySelector('#clrDate');
+  const info = m.querySelector('#clrInfo');
+  const countMsgs = () => {
+    const dateStr = dateInput.value;
+    if(!dateStr) return 0;
+    const start = new Date(dateStr + 'T00:00:00').getTime();
+    const end = start + 86400000;
+    let n = 0;
+    const ids = targetCid ? [targetCid] : Object.keys(S.chats || {});
+    ids.forEach(id => {
+      (S.chats[id] || []).forEach(msg => {
+        const t = msg.time || 0;
+        if(mode === 'before' && t < start) n++;
+        else if(mode === 'day' && t >= start && t < end) n++;
+        else if(mode === 'after' && t >= end) n++;
+      });
+    });
+    return n;
+  };
+  const updateInfo = () => {
+    if(!dateInput.value){ info.textContent = '请选择日期'; return; }
+    const n = countMsgs();
+    const scope = targetCid ? '当前聊天' : '全部聊天';
+    info.textContent = `将在${scope}中删除 ${n} 条消息`;
+  };
+  dateInput.onchange = updateInfo;
+  m.querySelectorAll('#clrModes .chip').forEach(ch => {
+    ch.onclick = () => {
+      m.querySelectorAll('#clrModes .chip').forEach(x => x.classList.remove('active'));
+      ch.classList.add('active');
+      mode = ch.dataset.mode;
+      updateInfo();
+    };
+  });
+  updateInfo();
+  m.querySelector('#clrConfirm').onclick = () => {
+    const dateStr = dateInput.value;
+    if(!dateStr){ showToast('请选择日期'); return; }
+    const start = new Date(dateStr + 'T00:00:00').getTime();
+    const end = start + 86400000;
+    const n = countMsgs();
+    if(n === 0){ showToast('该范围没有可删除的消息'); return; }
+    if(!confirm(`确定删除 ${n} 条聊天消息吗？此操作无法恢复。`)) return;
+    let removed = 0;
+    const ids = targetCid ? [targetCid] : Object.keys(S.chats || {});
+    ids.forEach(id => {
+      const msgs = S.chats[id];
+      if(!Array.isArray(msgs)) return;
+      const before = msgs.length;
+      S.chats[id] = msgs.filter(msg => {
+        const t = msg.time || 0;
+        if(mode === 'before') return t >= start;
+        if(mode === 'day') return t < start || t >= end;
+        if(mode === 'after') return t < end;
+        return true;
+      });
+      const diff = before - S.chats[id].length;
+      removed += diff;
+      if(diff > 0 && S.unread && S.unread.chats && !S.chats[id].length) S.unread.chats[id] = 0;
+    });
+    save(true);
+    closeModal();
+    if(stack[stack.length-1].name === 'chatRoom') refreshChat();
+    updateBadges();
+    showToast(`已删除 ${removed} 条聊天消息`);
+  };
+}
+
 document.addEventListener('click', function(e){
   if(e.target && e.target.id === 'profileKeepAlive'){
     e.target.classList.toggle('on');
@@ -4371,7 +4483,6 @@ function showToast(text){
   toastTimer=setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(8px)'; },2200);
 }
 
-/* ============ 陪伴主页 ============ */
 function viewCompanionHome() {
   return `<div class="page">
     <div class="subhead">
@@ -4411,47 +4522,23 @@ function viewCompanionHome() {
   </div>`;
 }
 
-/* ============ 一起看视图 ============ */
 let watchRoomCtx = {};
 
 function parseVideoUrl(url) {
   if (!url) return { type: 'unknown', typeLabel: '未知' };
   const u = url.trim();
-
   let m = u.match(/b23\.tv\/([A-Za-z0-9]+)/);
-  if (m) {
-    return { type: 'bilibili_short', typeLabel: 'B站短链', videoId: m[1], embedUrl: '', originalUrl: u };
-  }
+  if (m) return { type: 'bilibili_short', typeLabel: 'B站短链', videoId: m[1], embedUrl: '', originalUrl: u };
   m = u.match(/bilibili\.com\/video\/(BV[A-Za-z0-9]+)/);
-  if (m) {
-    return { type: 'bilibili', typeLabel: 'B站视频', videoId: m[1],
-      embedUrl: `https://player.bilibili.com/player.html?bvid=${m[1]}&autoplay=0&high_quality=1`, originalUrl: u };
-  }
-
+  if (m) return { type: 'bilibili', typeLabel: 'B站视频', videoId: m[1], embedUrl: `https://player.bilibili.com/player.html?bvid=${m[1]}&autoplay=0&high_quality=1`, originalUrl: u };
   m = u.match(/v\.douyin\.com\/([A-Za-z0-9]+)/);
-  if (m) {
-    return { type: 'douyin_short', typeLabel: '抖音短链', videoId: m[1], embedUrl: '', originalUrl: u };
-  }
+  if (m) return { type: 'douyin_short', typeLabel: '抖音短链', videoId: m[1], embedUrl: '', originalUrl: u };
   m = u.match(/(?:douyin|iesdouyin)\.com\/(?:video|share\/video)\/(\d+)/);
-  if (m) {
-    return { type: 'douyin', typeLabel: '抖音', videoId: m[1],
-      embedUrl: `https://open.douyin.com/player/video?vid=${m[1]}&autoplay=1`, originalUrl: u };
-  }
-
+  if (m) return { type: 'douyin', typeLabel: '抖音', videoId: m[1], embedUrl: `https://open.douyin.com/player/video?vid=${m[1]}&autoplay=1`, originalUrl: u };
   m = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  if (m) {
-    return { type: 'youtube', typeLabel: 'YouTube', videoId: m[1],
-      embedUrl: `https://www.youtube.com/embed/${m[1]}?autoplay=1`, originalUrl: u };
-  }
-
-  if (/v\.youku\.com|iqiyi\.com|v\.qq\.com/.test(u)) {
-    return { type: 'cn_video', typeLabel: '影视平台', embedUrl: '', originalUrl: u };
-  }
-
-  if (/\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(u)) {
-    return { type: 'direct', typeLabel: '视频文件', embedUrl: u, originalUrl: u };
-  }
-
+  if (m) return { type: 'youtube', typeLabel: 'YouTube', videoId: m[1], embedUrl: `https://www.youtube.com/embed/${m[1]}?autoplay=1`, originalUrl: u };
+  if (/v\.youku\.com|iqiyi\.com|v\.qq\.com/.test(u)) return { type: 'cn_video', typeLabel: '影视平台', embedUrl: '', originalUrl: u };
+  if (/\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(u)) return { type: 'direct', typeLabel: '视频文件', embedUrl: u, originalUrl: u };
   return { type: 'external', typeLabel: '外部链接', embedUrl: '', originalUrl: u };
 }
 
@@ -4459,7 +4546,6 @@ function renderWatchPlayer(parsed, room) {
   if (parsed.type === 'direct') {
     return `<video src="${esc(parsed.embedUrl)}" controls autoplay playsinline class="watch-iframe" style="object-fit:contain;"></video>`;
   }
-  
   if (parsed.type === 'bilibili_short' || parsed.type === 'douyin_short') {
     let tips = parsed.type === 'bilibili_short' 
       ? '由于浏览器安全策略，无法自动解析 B站短链接 (b23.tv)。请复制 B站 完整视频链接 (包含 BV号) 重新粘贴。' 
@@ -4474,7 +4560,6 @@ function renderWatchPlayer(parsed, room) {
       </div>
     </div>`;
   }
-
   if (parsed.type === 'douyin') {
     return `<div class="watch-iframe-wrap">
       <iframe src="${parsed.embedUrl}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; web-share" allowfullscreen webkitallowfullscreen frameborder="0" class="watch-iframe"></iframe>
@@ -4483,11 +4568,9 @@ function renderWatchPlayer(parsed, room) {
       </div>
     </div>`;
   }
-
   if (parsed.embedUrl) {
     return `<iframe src="${parsed.embedUrl}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; web-share" allowfullscreen webkitallowfullscreen mozallowfullscreen frameborder="0" class="watch-iframe"></iframe>`;
   }
-
   return `<div class="watch-fallback">
     <div class="watch-fallback-icon">${ICONS.video}</div>
     <div class="watch-fallback-title">该链接无法内嵌播放</div>
@@ -4511,7 +4594,6 @@ function renderWatchMsg(m, c) {
 function viewWatchHome() {
   const rooms = (S.watchTogether.rooms || []).filter(r => getContact(r.cid));
   const active = S.watchTogether.activeRoom;
-
   return `<div class="page">
     <div class="subhead">
       <button class="icon-btn" onclick="back()">${ICONS.back}</button>
@@ -4564,12 +4646,10 @@ function viewWatchRoom(p) {
   if (!room) return `<div class="page"><div class="empty">房间不存在</div></div>`;
   const c = getContact(room.cid) || { name: '对方', avatar: '' };
   watchRoomCtx = { roomId, room, cid: room.cid };
-
   const msgs = room.messages || [];
   const parsed = parseVideoUrl(room.url);
   const isVertical = parsed.type === 'douyin';
   const playerClass = 'watch-player' + (isVertical ? ' vertical' : '');
-
   return `<div class="page watch-room-page">
     <div class="subhead">
       <button class="icon-btn" onclick="back()">${ICONS.back}</button>
@@ -4711,33 +4791,27 @@ function deleteWatchRoom(id) {
   save(); render();
 }
 
-/* ============ 一起看：全屏控制 ============ */
 function toggleWatchFullscreen() {
   const el = document.getElementById('watchPlayer');
   if (!el) return;
-
   if (el.classList.contains('fake-fullscreen')) {
     el.classList.remove('fake-fullscreen', 'landscape-fs');
     try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
     updateWatchFsBtn();
     return;
   }
-
   const d = document;
   const getFsEl = () => d.fullscreenElement || d.webkitFullscreenElement || d.mozFullScreenElement || d.msFullscreenElement;
-
   if (getFsEl()) {
     const exit = d.exitFullscreen || d.webkitExitFullscreen || d.mozCancelFullScreen || d.msExitFullscreen;
     if (exit) { try { exit.call(d); } catch (e) {} }
     return;
   }
-
   const enableFakeFs = () => {
     el.classList.add('fake-fullscreen');
     el.classList.add('landscape-fs');
     updateWatchFsBtn();
   };
-
   const req = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
   if (req) {
     try {
@@ -4745,19 +4819,14 @@ function toggleWatchFullscreen() {
       if (p) {
         p.then(() => {
            try { if(screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); } catch(e){}
-        }).catch(() => {
-           enableFakeFs();
-        });
+        }).catch(() => { enableFakeFs(); });
       }
       setTimeout(() => {
-        if (!getFsEl() && !el.classList.contains('fake-fullscreen')) {
-          enableFakeFs();
-        }
+        if (!getFsEl() && !el.classList.contains('fake-fullscreen')) { enableFakeFs(); }
       }, 500);
       return;
     } catch (e) {}
   }
-
   enableFakeFs();
 }
 
@@ -4775,7 +4844,6 @@ document.addEventListener('webkitfullscreenchange', updateWatchFsBtn);
 const VIEWS={ home:viewHome, contacts:viewContacts, moments:viewMoments, profile:viewProfile, chatList:viewChatList, chatRoom:viewChatRoom, mail:viewMail, listen:viewListen, visitors:viewVisitors, cards:viewCards, quizLib:viewQuizLib,
   companionHome:viewCompanionHome, watchHome:viewWatchHome, watchRoom:viewWatchRoom };
 
-/* ============ 初始化：IndexedDB 主 + localStorage 备份 + BroadcastChannel 同步 ============ */
 async function initStorage(){
   idbDB = await idbOpen();
   if (idbDB && pendingIdbSave) { idbSet(pendingIdbSave.key, pendingIdbSave.val); pendingIdbSave = null; }
