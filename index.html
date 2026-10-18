@@ -803,7 +803,8 @@ const DEFAULT_STATE={
     stickerSize:120,autoMsgMin: 2,autoMsgMax: 6,autoMsgUnit: 'hours',
     avatarShape: 'rounded',customCss: '',
     redPacketPool: [5.20, 13.14, 52.00, 99.00],useRandomAmount: true,
-    keepAlive: false,pushEnabled: true,lastBackupTip: 0,
+    keepAlive: true,pushEnabled: true,lastBackupTip: 0,
+    patRate: 15,
     playMode: 'list',
     visitorRate: 50, visitorMinHours: 2, visitorMaxHours: 8, nextVisitorTime: null,
     callEnabled: false, callRate: 70, callMinHours: 6, callMaxHours: 24, nextCallTime: null,
@@ -899,7 +900,8 @@ function normalizeState(){
   if(S.currentSong === undefined) S.currentSong = null;
   if(!Array.isArray(S.settings.redPacketPool)) S.settings.redPacketPool = [5.20, 13.14, 52.00, 99.00];
   if(S.settings.useRandomAmount === undefined) S.settings.useRandomAmount = true;
-  if(S.settings.keepAlive === undefined) S.settings.keepAlive = false;
+  if(S.settings.keepAlive === undefined) S.settings.keepAlive = true;
+  if(S.settings.patRate == null) S.settings.patRate = 15;
   if(S.settings.pushEnabled === undefined) S.settings.pushEnabled = true;
   if(S.settings.lastBackupTip === undefined) S.settings.lastBackupTip = 0;
   if(S.settings.globalWallpaper === undefined) S.settings.globalWallpaper = '';
@@ -1084,15 +1086,25 @@ let lastKeepBeat = 0;
 function setKeepMediaSession() {
   try {
     if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
+    
+    // 💡 使用你的 icon-192.png
+    const myIcon = 'icon-192.png';
+    
     navigator.mediaSession.metadata = new MediaMetadata({
       title: '保持后台连接中',
       artist: 'Libum - 后台保活',
       album: 'KeepAlive',
-      artwork: [{ src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="20" fill="#f3f3f5"/><path d="M30 48a12 12 0 0 1 12-12h12a12 12 0 0 1 12 12v0a12 12 0 0 1-12 12H42a12 12 0 0 1-12-12z" fill="none" stroke="#1a1a1a" stroke-width="4"/><circle cx="48" cy="48" r="3" fill="#1a1a1a"/></svg>'), sizes: '96x96', type: 'image/svg+xml' }]
+      artwork: [{ 
+        src: myIcon, 
+        sizes: '192x192', 
+        type: 'image/png' 
+      }]
     });
+    
     navigator.mediaSession.playbackState = 'playing';
+    // 拦截所有按钮，强行伪装一直在播放，防止被用户点掉
     navigator.mediaSession.setActionHandler('play', () => { navigator.mediaSession.playbackState = 'playing'; if (keepAudio && keepAudio.paused) keepAudio.play().catch(()=>{}); });
-    navigator.mediaSession.setActionHandler('pause', () => { navigator.mediaSession.playbackState = 'playing'; });
+    navigator.mediaSession.setActionHandler('pause', () => { navigator.mediaSession.playbackState = 'playing'; if (keepAudio && keepAudio.paused) keepAudio.play().catch(()=>{}); });
     navigator.mediaSession.setActionHandler('previoustrack', () => { navigator.mediaSession.playbackState = 'playing'; });
     navigator.mediaSession.setActionHandler('nexttrack', () => { navigator.mediaSession.playbackState = 'playing'; });
     navigator.mediaSession.setActionHandler('stop', () => { navigator.mediaSession.playbackState = 'playing'; });
@@ -2709,7 +2721,16 @@ function toggleEmoji(){ closePlus(); const p=$('#emojiPanel'); if(p){ if(!p.clas
 function closeEmoji(){ const p=$('#emojiPanel'); if(p)p.classList.remove('open'); }
 function insertEmo(em){ const inp=$('#chatInput'); if(!inp)return; const pos=inp.selectionStart==null?inp.value.length:inp.selectionStart; inp.value=inp.value.slice(0,pos)+em+inp.value.slice(pos); inp.focus(); try{inp.setSelectionRange(pos+em.length,pos+em.length);}catch(e){} }
 let lastTap={id:null,t:0};
-function tapAvatar(id){ const now=Date.now(); if(lastTap.id===id&&now-lastTap.t<380){ lastTap={id:null,t:0}; doPat(id); } else { lastTap={id,t:now}; } }
+function tapAvatar(id){ 
+  const now=Date.now(); 
+  // 👈 将 380 改为 250，降低误触
+  if(lastTap.id===id && now-lastTap.t<250){ 
+    lastTap={id:null,t:0}; 
+    doPat(id); 
+  } else { 
+    lastTap={id,t:now}; 
+  } 
+}
 
 function patText(tpl, targetName){
   let t = (tpl && typeof tpl === 'object') ? (tpl.text || '') : String(tpl == null ? '' : tpl);
@@ -2725,7 +2746,8 @@ function doPat(id){
 }
 function simulateOtherPat(){
   if(!S.contacts.length) return;
-  if(Math.random() > 0.5) return;
+  if (Math.random() * 100 > (S.settings.patRate == null ? 15 : S.settings.patRate)) return;
+  
   const c = pickObj(S.contacts);
   if(!c) return;
   const myName = S.user.name || '我';
@@ -3986,11 +4008,27 @@ async function installPWA(){
       直接双击本地 HTML 文件（file://）打开时，无法安装到桌面。
     </div>
     <div class="modal-actions"><button class="btn" onclick="closeModal()">知道了</button></div>`);
-}function viewProfile(){
+}
+function viewProfile(){
   const u=S.user,st=S.settings;
   return `<div class="page"><div class="subhead"><div class="subhead-title">个人主页</div><div style="width:32px"></div></div>
     <div class="page-scroll">
       <div class="card-box" style="padding:16px;margin-bottom:6px"><div style="display:flex;align-items:center;gap:14px"><img class="li-avatar" style="width:58px;height:58px;border-radius:19px" src="${avatarSrc(u.avatar,u.name)}" onclick="changeAvatar()"><div style="flex:1"><div style="font-size:15px;font-weight:600">${esc(u.name||'未命名')}</div><div style="font-size:11.5px;opacity:.65;margin-top:4px">点击头像更换</div></div><button class="icon-btn" onclick="editNickname()">${ICONS.chev}</button></div></div>
+      
+      <div class="sec-title">互动与防扰</div>
+      <div class="card-box">
+        <div class="set-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+          <div style="display:flex;justify-content:space-between;width:100%;">
+            <span>对方主动拍一拍频率</span>
+            <span class="set-val" id="patRateVal">${S.settings.patRate==null?15:S.settings.patRate}%</span>
+          </div>
+          <input type="range" min="0" max="100" step="5" value="${S.settings.patRate==null?15:S.settings.patRate}" style="width:100%;" oninput="S.settings.patRate=+this.value; save(); document.getElementById('patRateVal').textContent=this.value+'%';">
+        </div>
+        <div class="set-row" style="padding:10px 15px;">
+          <div style="font-size:11px;opacity:.55;line-height:1.6;">控制对方每隔一段时间主动触发拍一拍的几率。设为 0% 则对方永远不会主动拍你。</div>
+        </div>
+      </div>
+
       <div class="sec-title">全局美化</div>
       <div class="card-box">
         <div class="set-row" style="flex-direction:column;align-items:flex-start;gap:0">
@@ -5045,6 +5083,17 @@ async function initStorage(){
 }
 
 initStorage();
+
+// ⬇️ 只要用户触碰一次屏幕，且开启了保活，立刻自动静音启动并挂在通知栏 ⬇️
+function autoStartKeepAlive() {
+  if (S.settings.keepAlive && !keepEnabled) {
+    enableKeepAliveNow();
+  }
+  document.removeEventListener('touchstart', autoStartKeepAlive);
+  document.removeEventListener('click', autoStartKeepAlive);
+}
+document.addEventListener('touchstart', autoStartKeepAlive, { capture: true });
+document.addEventListener('click', autoStartKeepAlive, { capture: true });
 
 window.addEventListener('beforeunload', () => { try{ save(true); }catch(e){} });
 </script>
