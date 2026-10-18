@@ -1069,7 +1069,123 @@ let audio = null;
 let audioTimer = null;
 let audioSongId = null;
 
-/* ============ 后台保活（Worker + 视频流 + 音频 + WebRTC 四重） ============ */
+/* ================= 核心保活三件套（升级版） ================= */
+function setKeepMediaSession() {
+  try {
+    if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
+    
+    const safeArtwork = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" rx="40" fill="#a58cf0"/><text x="96" y="124" font-size="84" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="bold">L</text></svg>');
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: '保持后台连接中',
+      artist: 'Libum - 后台保活',
+      album: 'KeepAlive',
+      artwork: [{ src: safeArtwork, sizes: '192x192', type: 'image/svg+xml' }]
+    });
+    
+    navigator.mediaSession.playbackState = 'playing';
+
+    try {
+      if ('setPositionState' in navigator.mediaSession && keepAudio) {
+        navigator.mediaSession.setPositionState({
+          duration: 86400, 
+          playbackRate: 1,
+          position: keepAudio.currentTime || 0
+        });
+      }
+    } catch(e) {}
+
+    const keepPlay = (e) => { 
+      if (e && e.preventDefault) e.preventDefault();
+      navigator.mediaSession.playbackState = 'playing'; 
+      if (keepAudio && keepAudio.paused) keepAudio.play().catch(()=>{}); 
+    };
+    ['play', 'pause', 'previoustrack', 'nexttrack', 'stop'].forEach(action => {
+      try { navigator.mediaSession.setActionHandler(action, keepPlay); } catch(e){}
+    });
+  } catch (e) {
+    console.warn('Media Session 设置失败', e);
+  }
+}
+
+function startKeepAudio() {
+  if (keepAudio) {
+    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
+    if (keepAudio.paused) keepAudio.play().then(()=>setKeepMediaSession()).catch(()=>{});
+    return;
+  }
+  try {
+    keepAudio = document.createElement('audio');
+    keepAudio.id = 'libumKeepAudio';
+    keepAudio.loop = true;
+    keepAudio.volume = 0.01;
+    keepAudio.setAttribute('playsinline', '');
+    keepAudio.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0.01;pointer-events:none;left:-999px;top:-999px;';
+    
+    const realAudioData = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=";
+    keepAudio.src = "data:audio/wav;base64," + realAudioData;
+
+    document.body.appendChild(keepAudio);
+
+    keepAudio.play().then(() => { 
+      setKeepMediaSession(); 
+    }).catch(e => {
+      console.log('等待用户点击屏幕以激活播放');
+    });
+
+    keepAudio.addEventListener('pause', () => {
+      if (keepEnabled) {
+        setTimeout(() => { keepAudio.play().then(()=>setKeepMediaSession()).catch(()=>{}); }, 1000);
+      }
+    });
+
+    if (window.__keepAudioTimer) clearInterval(window.__keepAudioTimer);
+    window.__keepAudioTimer = setInterval(() => {
+      if (!keepEnabled) return;
+      if (keepAudio && keepAudio.paused) {
+        keepAudio.play().catch(()=>{});
+      }
+      setKeepMediaSession();
+    }, 3000);
+
+    if (!keepAudioCtx) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) {
+          keepAudioCtx = new AC();
+          const osc = keepAudioCtx.createOscillator();
+          const gain = keepAudioCtx.createGain();
+          gain.gain.value = 0.0001;
+          osc.frequency.value = 440;
+          osc.connect(gain);
+          gain.connect(keepAudioCtx.destination);
+          osc.start();
+          keepAudioCtx.__osc = osc;
+        }
+      } catch (e) {}
+    }
+  } catch (e) {
+    console.error('保活音频启动失败', e);
+  }
+}
+
+function stopKeepAlive() {
+  keepEnabled = false;
+  if (window.__keepAudioTimer) { clearInterval(window.__keepAudioTimer); window.__keepAudioTimer = null; }
+  if (wakeSentinel) { try { wakeSentinel.release(); } catch (e) {} wakeSentinel = null; }
+  if (keepAudio) { try { keepAudio.pause(); keepAudio.src = ''; keepAudio.remove(); } catch (e) {} keepAudio = null; }
+  if (keepAudioCtx) { try { if (keepAudioCtx.__osc) keepAudioCtx.__osc.stop(); keepAudioCtx.close(); } catch (e) {} keepAudioCtx = null; }
+  if (keepVideoEl) { try { keepVideoEl.pause(); keepVideoEl.srcObject = null; keepVideoEl.remove(); } catch(e) {} keepVideoEl = null; }
+  if (keepVideoDrawTimer) { clearInterval(keepVideoDrawTimer); keepVideoDrawTimer = null; }
+  if (kaWorker) { try { kaWorker.terminate(); } catch(e) {} kaWorker = null; }
+  if (kaWebrtcPc1) { try { kaWebrtcPc1.close(); } catch (e) {} kaWebrtcPc1 = null; }
+  if (kaWebrtcPc2) { try { kaWebrtcPc2.close(); } catch (e) {} kaWebrtcPc2 = null; }
+  if (kaTimer) { clearInterval(kaTimer); kaTimer = null; }
+  if (kaTimer2) { clearInterval(kaTimer2); kaTimer2 = null; }
+  try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch (e) {}
+}
+/* ======================================================== */
+
 let keepEnabled = false;
 let wakeSentinel = null;
 let kaTimer = null;
@@ -1082,38 +1198,6 @@ let keepVideoDrawTimer = null;
 let kaWebrtcPc1 = null, kaWebrtcPc2 = null;
 let keepUserTouched = false;
 let lastKeepBeat = 0;
-
-function setKeepMediaSession() {
-  try {
-    if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
-    
-    // 确保相对路径正确加载，防止因为找不到图标导致 MediaSession 失效
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: '保持后台连接中',
-      artist: 'Libum - 后台保活',
-      album: 'KeepAlive',
-      artwork: [
-        { src: './icon-192.png', sizes: '192x192', type: 'image/png' },
-        { src: './icon-512.png', sizes: '512x512', type: 'image/png' }
-      ]
-    });
-    
-    navigator.mediaSession.playbackState = 'playing';
-    
-    // 拦截所有按钮，防止用户误触导致后台保活被杀
-    const keepPlay = () => { 
-      navigator.mediaSession.playbackState = 'playing'; 
-      if (keepAudio && keepAudio.paused) keepAudio.play().catch(()=>{}); 
-    };
-    navigator.mediaSession.setActionHandler('play', keepPlay);
-    navigator.mediaSession.setActionHandler('pause', keepPlay);
-    navigator.mediaSession.setActionHandler('previoustrack', keepPlay);
-    navigator.mediaSession.setActionHandler('nexttrack', keepPlay);
-    navigator.mediaSession.setActionHandler('stop', keepPlay);
-  } catch (e) {
-    console.warn('Media Session 设置失败', e);
-  }
-}
 
 function startWebRTCKeep() {
   if (/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
@@ -1140,80 +1224,6 @@ function startWebRTCKeep() {
     };
     kaWebrtcPc1 = p1; kaWebrtcPc2 = p2;
   } catch (e) {}
-}
-
-function startKeepAudio() {
-  if (keepAudio) {
-    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
-    if (keepAudio.paused) {
-      keepAudio.play().then(()=>setKeepMediaSession()).catch(()=>{});
-    }
-    return;
-  }
-  try {
-    // 换用标准的 44.1kHz 16-bit WAV 格式，各大手机系统都能识别为“正在播放的媒体”
-    const sampleRate = 44100;
-    const duration = 5; 
-    const numSamples = sampleRate * duration;
-    const buffer = new ArrayBuffer(44 + numSamples * 2); 
-    const view = new DataView(buffer);
-    const ws = (o, s) => { for(let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-    
-    ws(0, 'RIFF'); view.setUint32(4, 36 + numSamples * 2, true); ws(8, 'WAVE'); ws(12, 'fmt ');
-    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); 
-    view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); 
-    view.setUint16(32, 2, true); view.setUint16(34, 16, true); 
-    ws(36, 'data'); view.setUint32(40, numSamples * 2, true);
-
-    const bytes = new Uint8Array(buffer);
-    // 纯静音
-    for(let i = 44; i < bytes.length; i += 2) { bytes[i] = 0; bytes[i+1] = 0; }
-
-    let bin = '';
-    const chunk = 0x8000;
-    for(let i = 0; i < bytes.length; i += chunk){
-      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-    }
-    const url = 'data:audio/wav;base64,' + btoa(bin);
-
-    keepAudio = new Audio(url);
-    keepAudio.loop = true;
-    keepAudio.volume = 0.01; // 极低音量，用户听不到
-    keepAudio.setAttribute('playsinline', '');
-    
-    // 一旦播放成功，立刻注册系统媒体卡片
-    keepAudio.play().then(() => { 
-      setKeepMediaSession(); 
-    }).catch(e => {
-      console.log('音频被浏览器拦截，等待用户首次触摸屏幕...');
-    });
-    
-    keepAudio.addEventListener('pause', () => {
-      if (keepEnabled && document.hidden) {
-        setTimeout(() => { keepAudio.play().then(()=>setKeepMediaSession()).catch(()=>{}); }, 1000);
-      }
-    });
-
-    if (!keepAudioCtx) {
-      try {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (AC) {
-          keepAudioCtx = new AC();
-          const osc = keepAudioCtx.createOscillator();
-          const gain = keepAudioCtx.createGain();
-          gain.gain.value = 0.0001;
-          osc.frequency.value = 440;
-          osc.connect(gain);
-          gain.connect(keepAudioCtx.destination);
-          osc.start();
-          keepAudioCtx.__osc = osc;
-        }
-      } catch (e) {}
-    }
-    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
-  } catch (e) {
-    console.error('保活音频启动失败', e);
-  }
 }
 
 function startKeepVideoStream() {
@@ -1315,21 +1325,6 @@ async function resumeKeepAlive() {
   }, 5000);
 }
 
-function stopKeepAlive() {
-  keepEnabled = false;
-  if (wakeSentinel) { try { wakeSentinel.release(); } catch (e) {} wakeSentinel = null; }
-  if (keepAudio) { try { keepAudio.pause(); keepAudio.src = ''; } catch (e) {} keepAudio = null; }
-  if (keepAudioCtx) { try { if (keepAudioCtx.__osc) keepAudioCtx.__osc.stop(); keepAudioCtx.close(); } catch (e) {} keepAudioCtx = null; }
-  if (keepVideoEl) { try { keepVideoEl.pause(); keepVideoEl.srcObject = null; keepVideoEl.remove(); } catch(e) {} keepVideoEl = null; }
-  if (keepVideoDrawTimer) { clearInterval(keepVideoDrawTimer); keepVideoDrawTimer = null; }
-  stopKeepWorker();
-  if (kaWebrtcPc1) { try { kaWebrtcPc1.close(); } catch (e) {} kaWebrtcPc1 = null; }
-  if (kaWebrtcPc2) { try { kaWebrtcPc2.close(); } catch (e) {} kaWebrtcPc2 = null; }
-  if (kaTimer) { clearInterval(kaTimer); kaTimer = null; }
-  if (kaTimer2) { clearInterval(kaTimer2); kaTimer2 = null; }
-  try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch (e) {}
-}
-
 async function requestWakeLock() {
   if (!('wakeLock' in navigator) || wakeSentinel) return;
   if (document.visibilityState !== 'visible') return;
@@ -1390,7 +1385,6 @@ function enableKeepAliveNow(){
   if('Notification' in window && Notification.permission === 'default'){
     requestNotificationPermission().then(ok => { if(ok) showToast('系统通知已开启'); });
   }
-  showToast('超强保活已启动（Worker+音频+视频流+WebRTC）');
 }
 
 function runTimersNow(){ try{ if(typeof checkAllTimers === 'function') checkAllTimers(); }catch(e){} }
@@ -1421,32 +1415,35 @@ function enqueueNotification(title, body, tag, data){
 async function sendSystemNotification(title, body, force, tag, data) {
   if (!force && !S.settings.pushEnabled) return;
   if (!('Notification' in window)) return;
+  
   if (Notification.permission !== 'granted') {
-    if (force) { const ok = await requestNotificationPermission(); if (!ok) return; }
-    else return;
+    if (force) { 
+      const ok = await requestNotificationPermission(); 
+      if (!ok) return; 
+    } else return;
   }
+
   const payload = {
-    type: 'SHOW_NOTIFICATION', title: title || 'Libum', body: body || '',
-    icon: NOTIF_ICON, badge: NOTIF_ICON, tag: tag || 'libum-msg',
-    renotify: true, data: data || {}, vibrate: [80, 40, 80]
+    type: 'SHOW_NOTIFICATION', 
+    title: title || '新消息', 
+    body: body || '',
+    icon: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="20" fill="#a58cf0"/><text x="48" y="62" font-size="42" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="bold">L</text></svg>'),
+    badge: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="20" fill="#a58cf0"/><text x="48" y="62" font-size="42" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="bold">L</text></svg>'),
+    tag: tag || 'libum-msg',
+    renotify: true, 
+    vibrate: [80, 40, 80],
+    data: data || {}
   };
+
   if ('serviceWorker' in navigator) {
     try {
       const reg = await navigator.serviceWorker.ready;
       if (reg && reg.active) {
-        try { reg.active.postMessage(payload); } catch(e){}
         try { await reg.showNotification(payload.title, payload); return; } catch(e){}
       }
     } catch(e){}
-    try {
-      const n = new Notification(title, { body, icon: NOTIF_ICON, tag, data });
-      n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
-      setTimeout(() => { try{ n.close(); }catch(e){} }, 8000);
-    } catch(e){
-      try { idbSet('libum_notif_fallback', JSON.stringify({ title, body, tag, data, ts: Date.now() })); } catch(e2){}
-    }
-    return;
   }
+  
   try {
     const n = new Notification(title, { body, icon: NOTIF_ICON, tag, data });
     n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
@@ -1522,7 +1519,6 @@ function importData(){
 
 function checkUpdateNotice(){
   try {
-    // 每次打开都展示更新公告，同一会话内只弹一次，避免频繁刷新重复打扰
     const sessionKey = 'libum_notice_shown_' + APP_VERSION;
     if (sessionStorage.getItem(sessionKey) === '1') return;
     sessionStorage.setItem(sessionKey, '1');
@@ -2748,7 +2744,6 @@ function insertEmo(em){ const inp=$('#chatInput'); if(!inp)return; const pos=inp
 let lastTap={id:null,t:0};
 function tapAvatar(id){ 
   const now=Date.now(); 
-  // 👈 将 380 改为 250，降低误触
   if(lastTap.id===id && now-lastTap.t<250){ 
     lastTap={id:null,t:0}; 
     doPat(id); 
@@ -5095,14 +5090,14 @@ async function initStorage(){
       if(Notification.permission === 'granted') return;
       if(Notification.permission === 'denied') return;
       const ask = () => {
+        document.removeEventListener('pointerdown', ask);
         document.removeEventListener('click', ask);
-        document.removeEventListener('touchstart', ask);
         requestNotificationPermission().then(ok => {
           if(ok) showToast('系统通知已开启');
         });
       };
+      document.addEventListener('pointerdown', ask, { once: true });
       document.addEventListener('click', ask, { once: true });
-      document.addEventListener('touchstart', ask, { once: true });
     }catch(e){}
   })();
 }

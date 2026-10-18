@@ -1,8 +1,8 @@
 // ============================================================
-// Libum Service Worker
+// Libum Service Worker (v2.2.0)
 // ============================================================
 
-const CACHE_NAME = 'libum-v2.1.9';
+const CACHE_NAME = 'libum-v2.2.0';
 const PSYNC_SNAP_KEY = 'libum_snap';
 const PSYNC_QUEUE_KEY = 'libum_queue';
 const PSYNC_TAG = 'libum-offline-msg';
@@ -32,7 +32,7 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-// 后台周期性唤醒
+// 后台周期性唤醒（系统级保底）
 self.addEventListener('periodicsync', function (e) {
   if (e.tag !== PSYNC_TAG) return;
   e.waitUntil((async function () {
@@ -52,7 +52,7 @@ self.addEventListener('periodicsync', function (e) {
 
     await self.registration.showNotification(snap.name || 'Libum', {
       body: text,
-      tag: PSYNC_TAG,
+      tag: 'libum-msg-' + Date.now(),
       renotify: true,
       icon: NOTIF_ICON,
       badge: NOTIF_ICON,
@@ -62,7 +62,7 @@ self.addEventListener('periodicsync', function (e) {
   })().catch(function () {}));
 });
 
-// 页面消息
+// 页面直接触发系统通知
 self.addEventListener('message', (event) => {
   const d = event.data || {};
   if (d.type === 'SHOW_NOTIFICATION') {
@@ -71,7 +71,7 @@ self.addEventListener('message', (event) => {
         body: d.body || '',
         icon: d.icon || NOTIF_ICON,
         badge: d.badge || NOTIF_ICON,
-        tag: d.tag || 'libum-msg',
+        tag: d.tag || 'libum-msg-' + Date.now(),
         renotify: true,
         data: d.data || {},
         vibrate: d.vibrate || [80, 40, 80],
@@ -79,12 +79,9 @@ self.addEventListener('message', (event) => {
       }).catch(err => console.warn('[SW] showNotification failed:', err))
     );
   }
-  if (d.type === 'CHECK_UNREAD') {
-    event.waitUntil(checkUnreadAndNotify());
-  }
 });
 
-// 点击通知：有窗口只 postMessage，无窗口写 IDB 后 openWindow
+// 点击通知：精准唤醒并跳转
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
   const tag = (e.notification && e.notification.tag) || '';
@@ -135,10 +132,4 @@ function idbSet(key, val) {
     tx.oncomplete = () => resolve(true);
     tx.onerror = () => reject(tx.error);
   }));
-}
-
-async function checkUnreadAndNotify() {
-  try {
-    if (!('Notification' in self) || Notification.permission !== 'granted') return;
-  } catch (e) {}
 }
