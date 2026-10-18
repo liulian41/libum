@@ -1,32 +1,38 @@
 {
-  "name": "Libum",
+  "id": "/?source=pwa",
+  "name": "Libum Extreme",
   "short_name": "Libum",
-  "description": "一个温柔的陪伴小站",
+  "description": "极端的陪伴",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": ["standalone", "fullscreen", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#a58cf0",
   "theme_color": "#a58cf0",
-  "icons": [
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["social", "lifestyle"],
+  "prefer_related_applications": false,
+  "shortcuts": [
     {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
+      "name": "去聊天",
+      "short_name": "聊天",
+      "description": "直接打开聊天列表",
+      "url": "./index.html?page=chatList",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "name": "看朋友圈",
+      "short_name": "朋友圈",
+      "description": "看看对方发了什么",
+      "url": "./index.html?page=moments",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
+  ],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
