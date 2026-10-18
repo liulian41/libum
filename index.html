@@ -1069,7 +1069,69 @@ let audio = null;
 let audioTimer = null;
 let audioSongId = null;
 
-/* ================= 核心保活三件套（升级版） ================= */
+/* ================= 核心保活三件套（内存防抖版） ================= */
+let keepAudioUrlCache = null;
+function startKeepAudio() {
+  if (keepAudio) {
+    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
+    if (keepAudio.paused) keepAudio.play().then(()=>setKeepMediaSession()).catch(()=>{});
+    return;
+  }
+  try {
+    keepAudio = document.getElementById('libumKeepAudio');
+    if (!keepAudio) {
+      keepAudio = document.createElement('audio');
+      keepAudio.id = 'libumKeepAudio';
+      keepAudio.loop = true;
+      keepAudio.volume = 0.01; 
+      keepAudio.setAttribute('playsinline', '');
+      keepAudio.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0.01;pointer-events:none;left:-999px;top:-999px;';
+      
+      if (!keepAudioUrlCache) {
+        const realAudioData = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=";
+        keepAudioUrlCache = "data:audio/wav;base64," + realAudioData;
+      }
+      keepAudio.src = keepAudioUrlCache;
+      document.body.appendChild(keepAudio);
+    }
+
+    keepAudio.play().then(() => { setKeepMediaSession(); }).catch(e => {});
+    
+    if (!keepAudio.dataset.hasListeners) {
+      keepAudio.dataset.hasListeners = '1';
+      keepAudio.addEventListener('pause', () => {
+        if (keepEnabled) {
+          setTimeout(() => { keepAudio.play().then(()=>setKeepMediaSession()).catch(()=>{}); }, 1000);
+        }
+      });
+    }
+
+    if (window.__keepAudioTimer) clearInterval(window.__keepAudioTimer);
+    window.__keepAudioTimer = setInterval(() => {
+      if (!keepEnabled) return;
+      if (keepAudio && keepAudio.paused) keepAudio.play().catch(()=>{});
+      setKeepMediaSession();
+    }, 3000);
+
+    if (!keepAudioCtx) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) {
+          keepAudioCtx = new AC();
+          const osc = keepAudioCtx.createOscillator();
+          const gain = keepAudioCtx.createGain();
+          gain.gain.value = 0.0001;
+          osc.frequency.value = 440;
+          osc.connect(gain);
+          gain.connect(keepAudioCtx.destination);
+          osc.start();
+          keepAudioCtx.__osc = osc;
+        }
+      } catch (e) {}
+    }
+  } catch (e) { console.error('保活音频启动失败', e); }
+}
+
 function setKeepMediaSession() {
   try {
     if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
@@ -1105,67 +1167,6 @@ function setKeepMediaSession() {
     });
   } catch (e) {
     console.warn('Media Session 设置失败', e);
-  }
-}
-
-function startKeepAudio() {
-  if (keepAudio) {
-    if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
-    if (keepAudio.paused) keepAudio.play().then(()=>setKeepMediaSession()).catch(()=>{});
-    return;
-  }
-  try {
-    keepAudio = document.createElement('audio');
-    keepAudio.id = 'libumKeepAudio';
-    keepAudio.loop = true;
-    keepAudio.volume = 0.01;
-    keepAudio.setAttribute('playsinline', '');
-    keepAudio.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0.01;pointer-events:none;left:-999px;top:-999px;';
-    
-    const realAudioData = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=";
-    keepAudio.src = "data:audio/wav;base64," + realAudioData;
-
-    document.body.appendChild(keepAudio);
-
-    keepAudio.play().then(() => { 
-      setKeepMediaSession(); 
-    }).catch(e => {
-      console.log('等待用户点击屏幕以激活播放');
-    });
-
-    keepAudio.addEventListener('pause', () => {
-      if (keepEnabled) {
-        setTimeout(() => { keepAudio.play().then(()=>setKeepMediaSession()).catch(()=>{}); }, 1000);
-      }
-    });
-
-    if (window.__keepAudioTimer) clearInterval(window.__keepAudioTimer);
-    window.__keepAudioTimer = setInterval(() => {
-      if (!keepEnabled) return;
-      if (keepAudio && keepAudio.paused) {
-        keepAudio.play().catch(()=>{});
-      }
-      setKeepMediaSession();
-    }, 3000);
-
-    if (!keepAudioCtx) {
-      try {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (AC) {
-          keepAudioCtx = new AC();
-          const osc = keepAudioCtx.createOscillator();
-          const gain = keepAudioCtx.createGain();
-          gain.gain.value = 0.0001;
-          osc.frequency.value = 440;
-          osc.connect(gain);
-          gain.connect(keepAudioCtx.destination);
-          osc.start();
-          keepAudioCtx.__osc = osc;
-        }
-      } catch (e) {}
-    }
-  } catch (e) {
-    console.error('保活音频启动失败', e);
   }
 }
 
@@ -1286,7 +1287,20 @@ function onForeground() {
   if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
   if (navigator.wakeLock) requestWakeLock();
   startWebRTCKeep();
+  
+  // 强制立刻检查所有定时器（补发消息）
   runTimersNow();
+  // 顺便把错过的系统通知补上
+  try {
+    const missed = S.contacts.reduce((acc, c) => {
+      const cs = getChatSettings(c.id);
+      return acc + (cs.nextAutoMsgTime && Date.now() > cs.nextAutoMsgTime ? 1 : 0);
+    }, 0);
+    if (missed > 0) {
+      showToast('正在为你同步错过的消息...');
+    }
+  } catch(e){}
+
   setKeepMediaSession();
   checkNotifyClick();
 }
@@ -3080,6 +3094,25 @@ function generateMjMoment(c, now){
 
 function checkAllTimers(){
   const now = Date.now();
+  
+  // ================= 后台超时补偿机制 =================
+  // 如果网页被系统冻结，定时器会停。切回来时，强制把错过的消息补上。
+  S.contacts.forEach(c => {
+    const cs = getChatSettings(c.id);
+    if (cs.autoMsgEnabled && cs.nextAutoMsgTime && now > cs.nextAutoMsgTime + 60000) {
+      // 如果错过了超过1分钟，立刻补发一条
+      const text = pick(S.cards.chat);
+      if (text) { 
+        pushMsg(c.id, {from:'mj', type:'text', text}); 
+        if (chatCtx.id === c.id && stack[stack.length-1].name === 'chatRoom') refreshChat(); 
+        else updateBadges(); 
+      }
+      const unit = cs.autoMsgUnit || 'hours'; const multiplier = unit === 'minutes' ? 60000 : 3600000;
+      cs.nextAutoMsgTime = now + rnd((cs.autoMsgMin || 2) * multiplier, (cs.autoMsgMax || 6) * multiplier); 
+      save();
+    }
+  });
+  // ====================================================
 
   if (S.settings.mjMoment) {
     S.contacts.forEach(c => {
@@ -5027,8 +5060,10 @@ async function initStorage(){
   try {
     if ('BroadcastChannel' in window) {
       const syncChannel = new BroadcastChannel('libum-sync');
+      let syncLock = false;
       syncChannel.onmessage = async (e) => {
-        if (e.data === 'data-updated') {
+        if (e.data === 'data-updated' && !syncLock) {
+          syncLock = true; 
           if (idbDB) {
             const raw = await idbGet('libum_data');
             if (raw) {
@@ -5039,11 +5074,14 @@ async function initStorage(){
                   S = deepMerge(clone(DEFAULT_STATE), state);
                   normalizeState();
                   lastScrollKey = '';
-                  try { render(); } catch(err) {}
+                  if (document.visibilityState === 'visible') {
+                    try { render(); } catch(err) {}
+                  }
                 }
               } catch(err) {}
             }
           }
+          setTimeout(() => { syncLock = false; }, 1000);
         }
       };
       window.__libumSyncChannel = syncChannel;
