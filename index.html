@@ -222,7 +222,7 @@ input,textarea,select{outline:none;border:none;background:none;}
 .emoji-img{width:68px;height:68px;border-radius:14px;object-fit:cover;cursor:pointer;transition:transform .16s;}
 .emoji-img:active{transform:scale(.9);}
 
-.plus-panel{position:absolute;left:0;right:0;bottom:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:16px 14px;margin:0 0 1px;background:rgba(40,35,60,.85);backdrop-filter:blur(var(--blur)) saturate(180%);-webkit-backdrop-filter:blur(var(--blur)) saturate(180%);border-top:1px solid rgba(255,255,255,.24);transform:translateY(12px);opacity:0;pointer-events:none;transition:transform .25s cubic-bezier(.2,1,.4,1),opacity .25s;border-radius: 16px 16px 0 0;}
+.plus-panel{position:absolute;left:0;right:0;bottom:100%;display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:16px 14px;margin:0 0 1px;background:rgba(40,35,60,.85);backdrop-filter:blur(var(--blur)) saturate(180%);-webkit-backdrop-filter:blur(var(--blur)) saturate(180%);border-top:1px solid rgba(255,255,255,.24);transform:translateY(12px);opacity:0;pointer-events:none;transition:transform .25s cubic-bezier(.2,1,.4,1),opacity .25s;border-radius: 16px 16px 0 0;}
 .plus-panel.open{transform:none;opacity:1;pointer-events:auto;}
 .plus-item{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:10px;color:rgba(255,255,255,.85);}
 .plus-item .pi-ico{width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.34);}
@@ -245,6 +245,16 @@ input,textarea,select{outline:none;border:none;background:none;}
 .rp-info { flex: 1; min-width: 0; color: #fff; }
 .rp-remark { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rp-sub { font-size: 10.5px; opacity: .9; margin-top: 3px; }
+
+.music-msg-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:linear-gradient(135deg,rgba(255,255,255,.28),rgba(255,255,255,.18));border:1px solid rgba(255,255,255,.4);backdrop-filter:blur(20px) saturate(170%);-webkit-backdrop-filter:blur(20px) saturate(170%);box-shadow:0 4px 16px rgba(50,35,100,.15);cursor:pointer;transition:transform .18s;width:220px;-webkit-touch-callout:none;}
+.music-msg-card:active{transform:scale(.97);}
+.music-msg-cover{width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.2) center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.6);flex:none;}
+.music-msg-cover svg{width:20px;height:20px;}
+.music-msg-info{flex:1;min-width:0;}
+.music-msg-title{font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.music-msg-artist{font-size:11px;color:rgba(255,255,255,.7);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.music-msg-icon{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;color:#fff;flex:none;}
+.music-msg-icon svg{width:15px;height:15px;}
 
 .listen-invite-card{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:16px;background:linear-gradient(135deg,#7f8ff5,#a58cf0);box-shadow:0 6px 18px rgba(127,143,245,.4);transition:transform .18s;border:1px solid rgba(255,255,255,.3);width:240px;-webkit-touch-callout:none;flex-direction:column;}
 .listen-invite-card.accepted { background:linear-gradient(135deg,#7dc4a8,#6db89c);opacity:.9;box-shadow:none; }
@@ -622,7 +632,6 @@ window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; })
 
 (function setupPWA(){
   try{
-    // start_url 固定为干净 URL（不带 query），避免旧 token 残留
     let startUrl = location.origin + location.pathname;
     if (location.protocol === 'file:') startUrl = './index.html';
     const scopeUrl = startUrl.replace(/[^\/]*$/, '');
@@ -675,7 +684,7 @@ if ('serviceWorker' in navigator) {
     }
     if (d.type === 'MOCHI_NOTIFY_CLICK' && d.cid) {
       try {
-        idbDelete('libum_notify_click');   // 清理 IDB，防止 onForeground 重复导航
+        idbDelete('libum_notify_click');
         go('chatRoom', { id: d.cid });
       } catch(err){}
     }
@@ -1032,10 +1041,8 @@ function doSave(){
 
   const full = JSON.stringify({ v: 2, savedAt: S.__savedAt, assets, state: packed });
 
-  // 主存储：IndexedDB
   try { idbSet('libum_data', full); } catch(e){ console.warn('IDB 写入失败', e); }
 
-  // 二级备份：localStorage
   try {
     localStorage.setItem('libum_data', full);
     localStorage.setItem('libum_last_saved', S.__savedAt.toString());
@@ -1093,21 +1100,55 @@ let keepAudioCtx = null;
 let kaWebrtcPc1 = null, kaWebrtcPc2 = null;
 let keepUserTouched = false;
 
+// ================= 修改这里：参考图3的完美伪装 =================
 function setKeepMediaSession() {
   try {
     if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
+
+    // 1. 设置通知栏的显示内容（完美对齐图3）
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: 'Libum 后台守护', artist: 'System', album: 'KeepAlive',
-      artwork: [{ src: NOTIF_ICON, sizes: '96x96', type: 'image/svg+xml' }]
+      title: '保持后台连接中',      // 主标题
+      artist: 'Libum - 后台保活',   // 副标题
+      album: 'KeepAlive',
+      // 画一个类似图3的无限循环图标
+      artwork: [{ 
+        src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="20" fill="#f3f3f5"/><path d="M30 48a12 12 0 0 1 12-12h12a12 12 0 0 1 12 12v0a12 12 0 0 1-12 12H42a12 12 0 0 1-12-12z" fill="none" stroke="#1a1a1a" stroke-width="4"/><circle cx="48" cy="48" r="3" fill="#1a1a1a"/></svg>'), 
+        sizes: '96x96', 
+        type: 'image/svg+xml' 
+      }]
     });
+
+    // 2. 设置状态为正在播放
     navigator.mediaSession.playbackState = 'playing';
-    navigator.mediaSession.setActionHandler('play', () => { navigator.mediaSession.playbackState = 'playing'; });
-    navigator.mediaSession.setActionHandler('pause', () => { navigator.mediaSession.playbackState = 'playing'; });
+
+    // 3. 拦截通知栏的播放控制按钮，防止用户误触导致保活失效
+    navigator.mediaSession.setActionHandler('play', () => {
+      navigator.mediaSession.playbackState = 'playing';
+      if (keepAudio && keepAudio.paused) keepAudio.play().catch(()=>{});
+      if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume();
+    });
+
+    navigator.mediaSession.setActionHandler('pause', () => {
+      navigator.mediaSession.playbackState = 'playing'; // 假装响应，瞬间变回播放
+    });
+
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      navigator.mediaSession.playbackState = 'playing';
+    });
+    
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      navigator.mediaSession.playbackState = 'playing';
+    });
+    
+    navigator.mediaSession.setActionHandler('stop', () => {
+      navigator.mediaSession.playbackState = 'playing';
+    });
+
   } catch (e) {}
 }
+// ===============================================================
 
 function startWebRTCKeep() {
-  // iOS PWA 不支持 DataChannel 保活
   if (/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
   if (kaWebrtcPc1) return;
   if (typeof RTCPeerConnection === 'undefined') return;
@@ -1137,7 +1178,6 @@ function startWebRTCKeep() {
 }
 
 function startKeepAudio() {
-  // 只在未被手势创建时走降级路径
   if (keepAudio || keepAudioCtx) return;
   try {
     if (window.AudioContext || window.webkitAudioContext) {
@@ -1146,7 +1186,7 @@ function startKeepAudio() {
       const osc = keepAudioCtx.createOscillator();
       const gain = keepAudioCtx.createGain();
       gain.gain.value = 0.00001;
-      osc.frequency.value = 440;   // 使用 440Hz 而非 18000Hz（后者多数扬声器发不出来）
+      osc.frequency.value = 440;
       osc.connect(gain); gain.connect(keepAudioCtx.destination);
       osc.start();
     } else {
@@ -1191,7 +1231,6 @@ function onForeground() {
 async function resumeKeepAlive() {
   if (!S.settings.keepAlive) return;
   keepEnabled = true;
-  // AudioContext 如果用户手势里已经创建就跳过；否则降级创建
   if (!keepAudioCtx) startKeepAudio();
   startWebRTCKeep();
   if (navigator.wakeLock) requestWakeLock();
@@ -1270,8 +1309,6 @@ async function checkNotifyClick() {
 
 function enableKeepAliveNow(){
   keepUserTouched = true;
-
-  // ⚠️ 关键：在当前用户手势的同步调用栈内创建并激活 AudioContext
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (AC) {
@@ -1337,7 +1374,6 @@ async function sendSystemNotification(title, body, force, tag, data) {
     renotify: true, data: data || {}, vibrate: [80, 40, 80]
   };
 
-  // 首选 SW（Android Chrome 必须走 SW，页面 new Notification 会 throw）
   if ('serviceWorker' in navigator) {
     try {
       const reg = await navigator.serviceWorker.ready;
@@ -1346,19 +1382,16 @@ async function sendSystemNotification(title, body, force, tag, data) {
         try { await reg.showNotification(payload.title, payload); return; } catch(e){}
       }
     } catch(e){}
-    // SW 失败，桌面浏览器用页面 Notification 兜底
     try {
       const n = new Notification(title, { body, icon: NOTIF_ICON, tag, data });
       n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
       setTimeout(() => { try{ n.close(); }catch(e){} }, 8000);
     } catch(e){
-      // Android 到这一步说明彻底失败，写 IDB 队列，下次页面加载时补发
       try { idbSet('libum_notif_fallback', JSON.stringify({ title, body, tag, data, ts: Date.now() })); } catch(e2){}
     }
     return;
   }
 
-  // 无 SW，直接页面通知
   try {
     const n = new Notification(title, { body, icon: NOTIF_ICON, tag, data });
     n.onclick = () => { try{ window.focus(); }catch(e){} n.close(); };
@@ -2088,7 +2121,7 @@ function viewChatList(){
     <div class="page-scroll">${list.length===0?`<div class="empty">${ICONS.chat}<div>还没有可聊天的人</div></div>`:
       list.map(c=>{ const msgs=S.chats[c.id]||[]; const last=msgs[msgs.length-1]; const unread = S.unread.chats[c.id] || 0;
         let preview = '还没有消息';
-        if(last){ if(last.type === 'redpacket') preview = '[红包] ' + (last.remark||''); else if(last.type === 'photo') preview = '[图片]'; else if(last.type === 'image') preview = '[表情]'; else if(last.type === 'listenInvite') preview = '[一起听]'; else preview = last.text || ''; }
+        if(last){ if(last.type === 'redpacket') preview = '[红包] ' + (last.remark||''); else if(last.type === 'photo') preview = '[图片]'; else if(last.type === 'image') preview = '[表情]'; else if(last.type === 'listenInvite') preview = '[一起听]'; else if(last.type === 'music') preview = '[音乐] ' + (last.name||''); else preview = last.text || ''; }
         return `<div class="list-item" onclick="go('chatRoom',{id:'${c.id}'})"><img class="li-avatar" src="${avatarSrc(c.avatar,c.name)}"><div class="li-main"><div class="li-name">${esc(c.name)}</div><div class="li-sub">${esc(preview).slice(0,26)}</div></div>${unread > 0 ? '<span class="li-badge show"></span>' : ''}</div>`;
       }).join('')}</div></div>`;
 }
@@ -2124,6 +2157,7 @@ function viewChatRoom(p){
       <div class="plus-panel" id="plusPanel">
         <div class="plus-item" onclick="closePlus();openSendImage()"><div class="pi-ico">${ICONS.image}</div><span>图片</span></div>
         <div class="plus-item" onclick="closePlus();openSendRedPacket()"><div class="pi-ico">${ICONS.redpacket}</div><span>红包</span></div>
+        <div class="plus-item" onclick="closePlus();openMusicPicker()"><div class="pi-ico">${ICONS.play}</div><span>音乐</span></div>
         <div class="plus-item" onclick="closePlus();sendListenInvite()"><div class="pi-ico">${ICONS.music}</div><span>一起听</span></div>
         <div class="plus-item" onclick="closePlus();openQuizPanel()"><div class="pi-ico">${ICONS.quiz}</div><span>问卷</span></div>
       </div>
@@ -2273,6 +2307,82 @@ function refundRedPacket(msgId){
   pushMsg(cid, {from:'me', type:'pat', text:`你退回了 ${c?c.name:'对方'} 的红包`});
   if(chatCtx.id === cid && stack[stack.length-1].name === 'chatRoom') refreshChat(); else updateBadges();
 }
+
+/* ============ 分享音乐 ============ */
+function openMusicPicker(){
+  const cid = chatCtx.id; if(!cid) return;
+  if(!S.songs.length){ showToast('曲库暂无歌曲，去「一起听」添加吧'); return; }
+  const list = S.songs.map((s, i) => {
+    const cover = s.cover
+      ? `<img src="${s.cover}">`
+      : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5);">${ICONS.music}</div>`;
+    return `<div class="search-result-item" data-i="${i}">
+      <div class="sr-cover">${cover}</div>
+      <div class="sr-info">
+        <div class="sr-name">${esc(s.name || s.title || '未命名')}</div>
+        <div class="sr-artist">${esc(s.artist || '未知歌手')}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const m = openModal(`
+    <div class="modal-title">分享音乐</div>
+    <div style="font-size:11.5px;opacity:.7;margin-bottom:10px;padding:0 4px;">从曲库中选择一首歌分享给对方</div>
+    <div style="max-height:50vh;overflow-y:auto;" id="mpList">${list}</div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">取消</button></div>
+  `);
+  m.querySelectorAll('.search-result-item').forEach(el => {
+    el.onclick = () => {
+      const song = S.songs[+el.dataset.i];
+      if(!song) return;
+      closeModal();
+      sendMusicToChat(cid, song);
+    };
+  });
+}
+function sendMusicToChat(cid, song){
+  if(!song) return;
+  const msg = {
+    from: 'me', type: 'music',
+    songId: song.id,
+    neteaseId: song.neteaseId || '',
+    name: song.name || song.title || '未命名',
+    artist: song.artist || '未知歌手',
+    cover: song.cover || '',
+    url: song.url || ''
+  };
+  if (quoteState) { msg.quote = { author: quoteState.author, text: quoteState.text }; quoteState = null; renderQuoteBanner(); }
+  pushMsg(cid, msg);
+  save();
+  if(chatCtx.id === cid && stack[stack.length-1].name === 'chatRoom') refreshChat();
+  setTimeout(() => { if (Math.random() < 0.5) mjRespond(cid); }, rnd(1500, 3000));
+}
+function playMusicMessage(msgId){
+  const cid = chatCtx.id;
+  const msgs = S.chats[cid]; if(!msgs) return;
+  const m = msgs.find(x => x.id === msgId); if(!m || m.type !== 'music') return;
+  let song = S.songs.find(s => s.id === m.songId);
+  if (!song && m.neteaseId) song = S.songs.find(s => s.type === '163' && String(s.neteaseId) === String(m.neteaseId));
+  if (!song && m.url) {
+    song = {
+      id: uid(), type: m.neteaseId ? '163' : 'local',
+      neteaseId: m.neteaseId || '', url: m.url,
+      name: m.name || '未命名', artist: m.artist || '未知歌手',
+      cover: m.cover || '', title: (m.name||'') + ' - ' + (m.artist||''),
+      paused: true, liked: false
+    };
+    S.songs.push(song);
+  }
+  if (!song || !song.url) { showToast('这首歌暂时无法播放'); return; }
+  S.songs.forEach(s => { s.paused = (s.id !== song.id); });
+  song.paused = false;
+  S.currentSong = song.id;
+  if (!S.settings.playHistory) S.settings.playHistory = [];
+  S.settings.playHistory = [song.id, ...S.settings.playHistory.filter(x => x !== song.id)].slice(0, 50);
+  save();
+  showToast('正在播放：' + (song.name || '未命名'));
+  go('listen');
+}
+
 function viewPhoto(url){
   const mask = document.createElement('div'); mask.className = 'modal-mask';
   mask.style.background = 'rgba(0,0,0,.88)'; mask.style.padding = '0';
@@ -2308,7 +2418,7 @@ function showContextMenu(el, msgId) {
   const m = msgs.find(x => x.id === msgId); if (!m) return;
   const old = document.getElementById('ctxMenuMask'); if (old) old.remove();
   const isMe = m.from === 'me';
-  const canRecall = isMe && m.type !== 'redpacket' && m.type !== 'listenInvite';
+  const canRecall = isMe && m.type !== 'redpacket' && m.type !== 'listenInvite' && m.type !== 'music';
   const isText = m.type === 'text';
   const isRedPacket = m.type === 'redpacket';
   const actions = [];
@@ -2392,6 +2502,11 @@ function msgHTML(m,c,cs,isLast){
     const actionBtns = clickable ? `<div class="li-actions"><button class="li-btn accept" onclick="event.stopPropagation();acceptListenInvite('${m.id}')">接受</button><button class="li-btn reject" onclick="event.stopPropagation();rejectListenInvite('${m.id}')">拒绝</button></div>` : '';
     return `<div class="msg-row ${m.from==='me'?'me':'mj'}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:74%;min-width:0;"><div class="listen-invite-card ${cls}" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;"><div class="li-main-row"><div class="li-icon">${ICONS.music}</div><div class="li-info"><div class="li-title">一起听歌</div><div class="li-sub">${subText}</div></div></div>${actionBtns}</div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
   }
+  if(m.type === 'music'){
+    const cover = m.cover || '';
+    const quoteBlock = m.quote ? `<div class="quote-block" style="margin-bottom:6px;"><b>${esc(m.quote.author)}</b>: ${esc(m.quote.text)}</div>` : '';
+    return `<div class="msg-row ${m.from==='me'?'me':'mj'}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:74%;min-width:0;">${quoteBlock}<div class="music-msg-card" onclick="playMusicMessage('${m.id}')" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;"><div class="music-msg-cover" style="${cover?`background-image:url('${cover}')`:''}">${cover?'':ICONS.music}</div><div class="music-msg-info"><div class="music-msg-title">${esc(m.name||'未知歌曲')}</div><div class="music-msg-artist">${esc(m.artist||'未知歌手')}</div></div><div class="music-msg-icon">${ICONS.play}</div></div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
+  }
   if(m.type==='image'){
     const size = m.size || S.settings.stickerSize || 120;
     const quoteBlock = m.quote ? `<div class="quote-block" style="margin-bottom:6px;"><b>${esc(m.quote.author)}</b>: ${esc(m.quote.text)}</div>` : '';
@@ -2433,15 +2548,14 @@ function pushMsg(cid,msg){
     else if(msg.type === 'redpacket') preview = '[红包] ' + (msg.remark||'');
     else if(msg.type === 'quiz') preview = '[问卷]';
     else if(msg.type === 'listenInvite') preview = '[一起听]';
+    else if(msg.type === 'music') preview = '[音乐] ' + (msg.name||'');
 
     const inThisChat = isCurrentChat && !document.hidden;
     if(!document.hidden){
-      // 前台：只弹 heads-up，不发系统通知
       if(!inThisChat){
         showHeadsUpNotice(av, title, preview, () => go('chatRoom', {id: cid}));
       }
     } else {
-      // 后台：只发系统通知
       enqueueNotification(title, preview, 'libum-chat-' + cid, { cid: cid });
     }
   }
@@ -2512,14 +2626,30 @@ function mjRespond(cid){
   showTyping();
   const r = Math.random();
   const hasPendingInvite = (S.chats[cid]||[]).some(x => x.type === 'listenInvite' && x.accepted === null);
-  const willSendRedPacket = r < 0.25 && !S.listenWith;
-  const willInviteListen = r >= 0.25 && r < 0.40 && !S.listenWith && !hasPendingInvite;
+  const hasSongs = S.songs && S.songs.length > 0;
+  const willShareMusic = r < 0.12 && hasSongs;
+  const willSendRedPacket = r >= 0.12 && r < 0.28 && !S.listenWith;
+  const willInviteListen = r >= 0.28 && r < 0.42 && !S.listenWith && !hasPendingInvite;
   let currentDelay = delay;
   for(let i = 0; i < replyCount; i++) {
     const isFirst = i === 0;
     setTimeout(() => {
       hideTyping();
-      if(isFirst && willSendRedPacket){
+      if(isFirst && willShareMusic){
+        const song = pick(S.songs);
+        if(song){
+          pushMsg(cid, {
+            from:'mj', type:'music',
+            songId: song.id,
+            neteaseId: song.neteaseId || '',
+            name: song.name || song.title || '未命名',
+            artist: song.artist || '未知歌手',
+            cover: song.cover || '',
+            url: song.url || ''
+          });
+          if(chatCtx.id === cid && stack[stack.length-1].name === 'chatRoom') refreshChat(); else updateBadges();
+        }
+      } else if(isFirst && willSendRedPacket){
         const amount = getRandomRedPacketAmount();
         const remark = pick(['恭喜发财，大吉大利','给你个小惊喜','希望你开心','小小的礼物','每天都要开心哦']);
         pushMsg(cid, {from:'mj', type:'redpacket', amount, remark, opened:false, openedBy:null, refunded:false});
@@ -2575,7 +2705,7 @@ function doPat(id){
 }
 function simulateOtherPat(){
   if(!S.contacts.length) return;
-  if(Math.random() > 0.15) return;
+  if(Math.random() > 0.35) return;
   const c = pick(S.contacts);
   if(!c) return;
   const myName = S.user.name || '我';
@@ -2984,7 +3114,7 @@ setInterval(() => {
   if(stack[stack.length-1].name === 'moments') render();
 }, 60000);
 
-setInterval(() => { simulateOtherPat(); }, 30000);
+setInterval(() => { simulateOtherPat(); }, 20000);
 
 setInterval(() => {
   const now = Date.now();
@@ -3052,7 +3182,7 @@ setInterval(() => {
     S.settings.nextCallTime = now + rnd(cR.minH * 3600000, cR.maxH * 3600000);
     save();
   }
-}, 60000);
+}, 30000);
 
 function viewVisitors(){
   const v = S.visitors.filter(x => getContact(x.id)).sort((a,b)=>b.time-a.time);
@@ -3785,12 +3915,19 @@ function openCallSettingsModal(){
   range.oninput = update;
 
   m.querySelector('#callSave').onclick = () => {
+    const wasEnabled = S.settings.callEnabled;
     S.settings.callEnabled = sw.classList.contains('on');
     S.settings.callRate = Number(range.value);
-    const r = callIntervalRange();
-    S.settings.nextCallTime = S.settings.callEnabled
-      ? Date.now() + rnd(r.minH * 3600000, r.maxH * 3600000)
-      : null;
+    if (S.settings.callEnabled) {
+      if (!wasEnabled) {
+        S.settings.nextCallTime = Date.now() + rnd(60 * 1000, 180 * 1000);
+      } else {
+        const r = callIntervalRange();
+        S.settings.nextCallTime = Date.now() + rnd(r.minH * 3600000, r.maxH * 3600000);
+      }
+    } else {
+      S.settings.nextCallTime = null;
+    }
     closeModal(); save(); render();
     showToast(S.settings.callEnabled ? '对方来电已开启' : '对方来电已关闭');
   };
@@ -3800,13 +3937,12 @@ function toggleCallEnabled(el){
   el.classList.toggle('on');
   S.settings.callEnabled = el.classList.contains('on');
   if (S.settings.callEnabled) {
-    const r = callIntervalRange();
-    S.settings.nextCallTime = Date.now() + rnd(r.minH * 3600000, r.maxH * 3600000);
+    S.settings.nextCallTime = Date.now() + rnd(60 * 1000, 180 * 1000);
   } else {
     S.settings.nextCallTime = null;
   }
   save(); render();
-  showToast(S.settings.callEnabled ? '对方来电已开启' : '对方来电已关闭');
+  showToast(S.settings.callEnabled ? '对方来电已开启（稍后会打来）' : '对方来电已关闭');
 }
 
 async function installPWA(){
@@ -4653,7 +4789,6 @@ async function initStorage(){
 
   let gotFromIDB = false, gotFromLocal = false;
 
-  // 1) 优先 IndexedDB
   if (idbDB){
     const raw = await idbGet('libum_data');
     if (raw){
@@ -4671,7 +4806,6 @@ async function initStorage(){
     }
   }
 
-  // 2) IDB 为空时，从 localStorage 备份恢复，并立即回写 IDB
   if (!gotFromIDB){
     try{
       const rawLocal = localStorage.getItem('libum_data');
@@ -4691,7 +4825,6 @@ async function initStorage(){
     }catch(e){ console.warn('localStorage 备份恢复失败', e); }
   }
 
-  // 3) 迁移令牌仅在完全无数据时兜底（防止旧 token 覆盖新数据）
   try{
     const token = new URLSearchParams(location.search).get('__migrate');
     if (token){
@@ -4713,7 +4846,6 @@ async function initStorage(){
   normalizeState();
   migratePatCards();
 
-  // 4) 读取 SW periodic sync 队列，合并进聊天
   try {
     const queueRaw = await idbGet('libum_queue');
     if (queueRaw) {
@@ -4736,7 +4868,6 @@ async function initStorage(){
     }
   } catch(e){ console.warn('SW 队列恢复失败', e); }
 
-  // 5) 读取通知失败队列，1 小时内有效则补发
   try {
     const fbRaw = await idbGet('libum_notif_fallback');
     if (fbRaw) {
@@ -4767,7 +4898,6 @@ async function initStorage(){
     S.settings.nextCallTime = Date.now() + rnd(cr.minH * 3600000, cr.maxH * 3600000);
   }
 
-  // 6) BroadcastChannel：PWA 与浏览器标签页实时同步
   try {
     if ('BroadcastChannel' in window) {
       const syncChannel = new BroadcastChannel('libum-sync');
