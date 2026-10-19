@@ -3052,32 +3052,30 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) { __lastTick = 0; setTimeout(() => safeTick(true), 300); }
 });
 
-
 /* ========== 定时任务交接给 SW ========== */
 const TASK_HORIZON_MS = 5 * 60 * 1000;
 
 function collectUpcomingTasks(){
   const now = Date.now();
   const until = now + TASK_HORIZON_MS;
-  const inRange = t => t && t > now && t <= until;
   const out = [];
+  const inRange = t => t && t > now && t <= until;
 
-  // 1) 自动消息
   (S.contacts || []).forEach(c => {
     const cs = getChatSettings(c.id);
     if (!cs.autoMsgEnabled || !inRange(cs.nextAutoMsgTime)) return;
+    const body = pick(S.cards.chat) || '在吗？';
     out.push({
       id: `auto_${c.id}_${Math.round(cs.nextAutoMsgTime / 1000)}`,
       fireAt: cs.nextAutoMsgTime,
       title: c.name || '好友',
-      body: pick(S.cards.chat) || '在吗？',
+      body,
       tag: `libum-chat-${c.id}`,
       data: { cid: c.id, type: 'AUTO_MSG' }
     });
   });
 
-  // 2) 来信
-  if (inRange(S.settings.nextLetterTime) && S.contacts.length){
+  if (inRange(S.settings.nextLetterTime) && S.contacts.length) {
     const c = S.contacts[0];
     out.push({
       id: `letter_${Math.round(S.settings.nextLetterTime / 1000)}`,
@@ -3089,7 +3087,6 @@ function collectUpcomingTasks(){
     });
   }
 
-  // 3) 朋友圈
   (S.contacts || []).forEach(c => {
     const cs = getChatSettings(c.id);
     if (!inRange(cs.nextMomentTime)) return;
@@ -3106,19 +3103,14 @@ function collectUpcomingTasks(){
   return out;
 }
 
-let __handoffBusy = false;
 function handoffToSW(){
-  if (!('serviceWorker' in navigator) || __handoffBusy) return;
+  if (!('serviceWorker' in navigator)) return;
   const tasks = collectUpcomingTasks();
   if (!tasks.length) return;
-  __handoffBusy = true;
-  navigator.serviceWorker.ready
-    .then(reg => {
-      const sw = reg.active || navigator.serviceWorker.controller;
-      if (sw) sw.postMessage({ type: 'SCHEDULE_TASKS', tasks });
-    })
-    .catch(() => {})
-    .finally(() => { __handoffBusy = false; });
+  navigator.serviceWorker.ready.then(reg => {
+    const sw = reg.active || navigator.serviceWorker.controller;
+    if (sw) sw.postMessage({ type: 'SCHEDULE_TASKS', tasks });
+  }).catch(() => {});
 }
 
 async function syncBackFromSW(){
@@ -3160,18 +3152,12 @@ async function syncBackFromSW(){
   try { const sw = navigator.serviceWorker.controller; if (sw) sw.postMessage({ type: 'PING_SW' }); } catch(e){}
 }
 
-// 页面隐藏：交给 SW 接力
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     handoffToSW();
   } else {
     syncBackFromSW();
   }
-});
-
-// 移动端页面可能直接进入 pagehide 而无 hidden 事件，再兜底一次
-window.addEventListener('pagehide', () => {
-  handoffToSW();
 });
 
 function viewVisitors(){
