@@ -209,7 +209,7 @@ html.app-hidden .watch-active-glow { animation-play-state: paused !important; }
 .bubble{width: fit-content;max-width:100%;padding:10px 14px;font-size:calc(14px * var(--fs));line-height:1.5;border-radius:18px;word-break:normal;overflow-wrap:break-word;background:rgba(255,255,255,.22);backdrop-filter:blur(var(--blur)) saturate(170%);-webkit-backdrop-filter:blur(var(--blur)) saturate(170%);border:1px solid rgba(255,255,255,.3);box-shadow:0 4px 16px rgba(50,35,100,.1);position:relative;-webkit-touch-callout:none;}
 .msg-row.me .bubble{background:rgba(255,255,255,.42);border-color:rgba(255,255,255,.55);}
 
-/* 更轻盈的进入动画，取代原来浮夸的弹动 */
+/* 更轻盈的进入动画 */
 @keyframes msgInMe {
   0%   { opacity: 0; transform: translateY(15px); }
   100% { opacity: 1; transform: translateY(0); }
@@ -632,10 +632,9 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   <nav class="tabbar" id="tabbar"></nav>
 </div>
 <div id="layerRoot"></div>
-<style id="customCssStyle"></style>
-<script>
+<style id="customCssStyle"></style><script>
 /* ==========================================================================
-   Libum 后台引擎（升级版 · 支持自定义音频/静音通道/保活统计）
+   Libum 后台引擎（媒体卡片增强版）
    ========================================================================== */
 (function() {
   let isKeepEnabled = false;
@@ -647,7 +646,6 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   let currentAudioMode = 'none';
   let wakeSentinel = null;
   let lastHiddenAt = 0;
-  let pendingNotifications = [];
   
   let keepStats = { 
     heartbeats: 0, 
@@ -659,6 +657,9 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   };
 
   const SAFE_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="20" fill="#a58cf0"/><text x="48" y="62" font-size="42" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="bold">L</text></svg>');
+  
+  // 一段极低音量的白噪音，用于激活系统媒体面板
+  const MINIMAL_AUDIO_B64 = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 
   function initWorker() {
     if (kaWorker) return;
@@ -670,7 +671,6 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
         if (e.data === 'beat' && isKeepEnabled) {
           keepStats.heartbeats++;
           keepStats.connected = true;
-          if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
         }
       };
       kaWorker.postMessage('start');
@@ -682,6 +682,7 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
       if (keepAudioSrc) { try { keepAudioSrc.stop(); } catch(e){} keepAudioSrc = null; }
       if (keepAudioCtx) { keepAudioCtx.close().catch(()=>{}); keepAudioCtx = null; }
       if (keepAudioEl) { keepAudioEl.pause(); keepAudioEl = null; }
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
       currentAudioMode = 'none';
     } catch (e) {}
   }
@@ -689,15 +690,27 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   function startSilentAudio() {
     stopSilentAudio();
     
-    if (window.S && S.settings.customKeepAudio && !S.settings.dontStealAudio) {
+    // 核心判断：如果开启了媒体卡片，或者设置了自定义音频，走媒体元素通道
+    const useMediaCard = window.S && S.settings.showMediaCard !== false;
+    const hasCustomAudio = window.S && S.settings.customKeepAudio && !S.settings.dontStealAudio;
+    
+    if (useMediaCard || hasCustomAudio) {
       try {
-        keepAudioEl = new Audio(S.settings.customKeepAudio);
+        keepAudioEl = new Audio();
+        if (hasCustomAudio) {
+          keepAudioEl.src = S.settings.customKeepAudio;
+          keepAudioEl.volume = 1;
+        } else {
+          keepAudioEl.src = MINIMAL_AUDIO_B64;
+          keepAudioEl.volume = 0.01; // 极小音量，欺骗系统
+        }
         keepAudioEl.loop = true;
-        keepAudioEl.volume = 1;
         keepAudioEl.play().catch(()=>{});
         currentAudioMode = 'media';
+        setMediaSession();
       } catch(e) {}
     } else {
+      // 纯静音后台通道（不显示媒体卡片）
       try {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return;
@@ -719,16 +732,36 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
     }
   }
 
-  let msSet = false;
   function setMediaSession() {
-    if (msSet) return;
-    msSet = true;
     try {
       if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
-      navigator.mediaSession.metadata = new MediaMetadata({ title: 'Libum', artist: '保持后台连接', album: 'KeepAlive', artwork: [{ src: SAFE_ICON, sizes: '96x96', type: 'image/svg+xml' }] });
+      
+      const artwork = [];
+      // 默认使用用户头像作为封面
+      if (window.S && S.user && S.user.avatar) {
+        artwork.push({ src: S.user.avatar, sizes: '512x512', type: 'image/png' });
+      }
+      artwork.push({ src: SAFE_ICON, sizes: '96x96', type: 'image/svg+xml' });
+      
+      navigator.mediaSession.metadata = new MediaMetadata({ 
+        title: 'Libum', 
+        artist: '保持后台连接', 
+        album: 'KeepAlive', 
+        artwork: artwork 
+      });
+      
       navigator.mediaSession.playbackState = 'playing';
-      const playAction = (e) => { if (e && e.preventDefault) e.preventDefault(); navigator.mediaSession.playbackState = 'playing'; };
-      ['play','pause','stop','previoustrack','nexttrack'].forEach(a => { try { navigator.mediaSession.setActionHandler(a, playAction); } catch(e){} });
+      
+      // 拦截控制面板的点击，防暂停防切歌
+      const playAction = (e) => { 
+        if (e && e.preventDefault) e.preventDefault(); 
+        navigator.mediaSession.playbackState = 'playing'; 
+        if (keepAudioEl && keepAudioEl.paused) keepAudioEl.play().catch(()=>{});
+      };
+      
+      ['play','pause','stop','previoustrack','nexttrack','seekbackward','seekforward'].forEach(a => { 
+        try { navigator.mediaSession.setActionHandler(a, playAction); } catch(e){} 
+      });
     } catch (e) {}
   }
 
@@ -753,16 +786,13 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
       
       if (awayMs > 0) {
         keepStats.lastSurvival = Math.floor(awayMs / 1000);
-        if (keepStats.lastSurvival > keepStats.maxSurvival) {
-          keepStats.maxSurvival = keepStats.lastSurvival;
-        }
+        if (keepStats.lastSurvival > keepStats.maxSurvival) keepStats.maxSurvival = keepStats.lastSurvival;
         if (awayMs > 30000) keepStats.terminationCount++;
       }
 
       lastHiddenAt = 0;
       stopSilentAudio();
       if (navigator.wakeLock) requestWakeLock();
-      msSet = false; setMediaSession();
       if (window.__kaCatchupHook) { try { window.__kaCatchupHook(awayMs); } catch(e) {} }
     }
   });
@@ -770,45 +800,25 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   async function fireNotification(title, body, tag, data) {
     if (!isPushEnabled) return;
     if (!('Notification' in window)) return;
-    if (Notification.permission === 'denied') return;
-    if (Notification.permission !== 'granted') return;
+    if (Notification.permission === 'denied' || Notification.permission !== 'granted') return;
 
     const payload = {
-      body: body || '',
-      icon: SAFE_ICON,
-      badge: SAFE_ICON,
-      tag: tag || ('libum-msg-' + Date.now()),
-      renotify: true,
-      vibrate: [80, 40, 80],
-      data: data || {},
-      requireInteraction: true
+      body: body || '', icon: SAFE_ICON, badge: SAFE_ICON, tag: tag || ('libum-msg-' + Date.now()),
+      renotify: true, vibrate: [80, 40, 80], data: data || {}, requireInteraction: true
     };
 
-    // 优先走 SW（Android Chrome 必须）
     if ('serviceWorker' in navigator) {
       try {
-        const reg = await Promise.race([
-          navigator.serviceWorker.ready,
-          new Promise(resolve => setTimeout(() => resolve(null), 1500))
-        ]);
-        if (reg && reg.active) {
-          await reg.showNotification(title, payload);
-          return;
-        }
+        const reg = await Promise.race([navigator.serviceWorker.ready, new Promise(resolve => setTimeout(() => resolve(null), 1500))]);
+        if (reg && reg.active) { await reg.showNotification(title, payload); return; }
       } catch (e) {}
     }
 
-    // Fallback：直连 Notification（桌面 / 部分 iOS PWA）
     try {
       const n = new Notification(title, payload);
-      n.onclick = () => {
-        try { window.focus(); } catch(e){}
-        n.close();
-        if (data && data.cid && window.go) window.go('chatRoom', { id: data.cid });
-      };
+      n.onclick = () => { try { window.focus(); } catch(e){} n.close(); if (data && data.cid && window.go) window.go('chatRoom', { id: data.cid }); };
       setTimeout(() => { try { n.close(); } catch(e){} }, 8000);
     } catch (e) {
-      // 彻底失败：写回 IDB 让 SW 下次唤醒时补发
       try {
         if (window.indexedDB) {
           const req = indexedDB.open('libum_store', 1);
@@ -816,9 +826,7 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
             try {
               const db = req.result;
               const tx = db.transaction('kv', 'readwrite');
-              tx.objectStore('kv').put({
-                title, body, tag, data, ts: Date.now()
-              }, 'libum_notif_fallback');
+              tx.objectStore('kv').put({ title, body, tag, data, ts: Date.now() }, 'libum_notif_fallback');
             } catch(e) {}
           };
         }
@@ -846,7 +854,6 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
       isKeepEnabled = true;
       keepStats = { heartbeats: 0, maxSurvival: 0, lastSurvival: 0, disconnectCount: 0, terminationCount: 0, connected: true };
       initWorker();
-      setMediaSession();
       requestWakeLock();
       if (document.hidden) startSilentAudio();
     },
@@ -855,7 +862,6 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
       if (kaWorker) { kaWorker.terminate(); kaWorker = null; }
       stopSilentAudio();
       if (wakeSentinel) { try { wakeSentinel.release(); } catch(e){} wakeSentinel = null; }
-      try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch(e){}
     },
     setPushEnabled(enabled) { isPushEnabled = enabled; },
     getStatus() {
@@ -882,7 +888,8 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
     if (window.__checkTimersHook) { try { window.__checkTimersHook(); } catch(e){} }
   };
 })();
-</script><script>
+</script>
+<script>
 function encodeToken(str){
   try{
     const bytes = new TextEncoder().encode(str);
@@ -1054,6 +1061,7 @@ const DEFAULT_STATE={
   },
   settings:{
     theme:'aurora',blur:24,annivBlur:20,globalWallpaper:'',wallpaperDim:0,
+    showMediaCard: true,
     mjMoment:true,
     mjMomentCombine:true,
     mjMomentCombineMin:2,
@@ -1187,6 +1195,7 @@ function normalizeState(){
   if(S.settings.mjMomentReplyMin == null) S.settings.mjMomentReplyMin = 1;
   if(S.settings.mjMomentReplyMax == null) S.settings.mjMomentReplyMax = 2;
   if(S.settings.mjMomentWithSticker === undefined) S.settings.mjMomentWithSticker = true;
+  if(S.settings.showMediaCard === undefined) S.settings.showMediaCard = true;
   if (!S.watchTogether) S.watchTogether = clone(DEFAULT_STATE.watchTogether);
   if (!Array.isArray(S.watchTogether.rooms)) S.watchTogether.rooms = [];
   if (!Array.isArray(S.watchTogether.watchCards) || !S.watchTogether.watchCards.length)
@@ -1835,9 +1844,7 @@ function bindLiveChatSettings(overlay, cs, cid){
   const cardJump = overlay.querySelector('#fsCardJump');
   if(cardJump) cardJump.addEventListener('click', () => { closeFullSettings(); cardsTab = 'chat'; go('cards'); });
   syncUI();
-}
-
-function openFullSettings() {
+}function openFullSettings() {
   const cur = stack[stack.length-1];
   const isChat = cur.name === 'chatRoom';
   const cid = isChat ? cur.params.id : null;
@@ -1981,13 +1988,19 @@ function openKeepAliveSettings() {
     <div class="sec-title">后台保活</div>
     <div class="card-box">
       <div class="set-row"><span>开启后台保活</span><div class="switch ${S.settings.keepAlive?'on':''}" id="fsKeepAlive"></div></div>
-      <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">默认已开启。切后台时持续播放近无声音频防冻结，消息即时到达；默认走静音通道，不压低你在听的其他 App 声音（上传自定义有声音频或极个别设备回落到媒体元素时才会占声道）；回前台自动补跑错过的调度。</div></div>
+      <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">默认已开启。切后台时持续播放近无声音频防冻结，消息即时到达；回前台自动补跑错过的调度。</div></div>
+    </div>
+
+    <div class="sec-title">媒体控制面板 (锁屏/通知栏)</div>
+    <div class="card-box">
+      <div class="set-row"><span>显示媒体播放卡片</span><div class="switch ${S.settings.showMediaCard !== false ? 'on' : ''}" id="fsShowMediaCard"></div></div>
+      <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">开启后，系统锁屏和控制中心会出现播放卡片，能极大地提升后台存活率。卡片封面会使用你的个人头像。</div></div>
     </div>
 
     <div class="sec-title">不抢其他 App 的声音</div>
     <div class="card-box">
       <div class="set-row"><span>不抢其他 App 的声音</span><div class="switch ${S.settings.dontStealAudio?'on':''}" id="fsDontSteal"></div></div>
-      <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">保活音频走静音通道，不压低你在听的音乐/视频音量。</div></div>
+      <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">如果开启了媒体卡片，此项会自动使用极低音量，不压低你在听的音乐。</div></div>
     </div>
 
     <div class="sec-title">保活音频</div>
@@ -1996,13 +2009,11 @@ function openKeepAliveSettings() {
         <span>保活音频</span>
         <span class="set-val" id="fsKeepAudioVal">${S.settings.customKeepAudio ? '自定义音频' : '默认静音音频'} ›</span>
       </div>
-      <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">点击可换成自定义音频（白噪音/助眠声，会按原音量出声）</div></div>
     </div>
 
     <div class="sec-title">综合状态测试</div>
     <div class="card-box" style="margin-bottom:16px;">
       <div class="set-row" style="padding:10px 15px;display:flex;gap:8px;">
-        <!-- 合并为一个测试按钮 -->
         <button class="btn" onclick="runCombinedTest()" style="flex:1;height:36px;font-size:12px;border-radius:12px;">综合状态测试 (保活 + 通知)</button>
       </div>
       <div id="fsKeepLog" style="font-size:11px; line-height:1.8; padding:10px 15px; color:var(--dim2); background:rgba(0,0,0,0.15); border-radius:0 0 20px 20px; display:none;">
@@ -2015,6 +2026,7 @@ function openKeepAliveSettings() {
   root.appendChild(overlay);
 
   const pu = overlay.querySelector('#fsPushEnabled'); if (pu) pu.onclick = async function(){ await togglePushSwitch(this); };
+  
   const ka = overlay.querySelector('#fsKeepAlive');
   if (ka) ka.onclick = function() {
     this.classList.toggle('on');
@@ -2023,6 +2035,19 @@ function openKeepAliveSettings() {
     if(S.settings.keepAlive) enableKeepAliveNow();
     else stopKeepAlive();
   };
+
+  const fsCard = overlay.querySelector('#fsShowMediaCard');
+  if (fsCard) fsCard.onclick = function() {
+    this.classList.toggle('on');
+    S.settings.showMediaCard = this.classList.contains('on');
+    save();
+    if(S.settings.keepAlive) {
+      stopKeepAlive();
+      setTimeout(enableKeepAliveNow, 200);
+    }
+    showToast(S.settings.showMediaCard ? '已开启媒体卡片' : '已切换为纯静音通道');
+  };
+
   const ds = overlay.querySelector('#fsDontSteal');
   if (ds) ds.onclick = function() { this.classList.toggle('on'); S.settings.dontStealAudio = this.classList.contains('on'); save(); };
 }
@@ -2046,7 +2071,6 @@ function pickKeepAliveAudio() {
   inp.click();
 }
 
-// 将保活与通知测试合并
 async function runCombinedTest() {
   const logEl = document.getElementById('fsKeepLog');
   if (!logEl) return;
@@ -2066,7 +2090,6 @@ async function runCombinedTest() {
     <hr style="border:0;border-top:1px solid rgba(255,255,255,.1);margin:8px 0;">
   `;
 
-  // 通知测试部分
   if (!('Notification' in window)) { 
     html += '<div style="color:#ffb04a">此环境不支持系统通知</div>'; 
     logEl.innerHTML = html;
@@ -3502,7 +3525,6 @@ async function syncBackFromSW() {
   try {
     const rawQ = await idbGet('libum_queue');
     if (rawQ) {
-      // 先删，避免下一次 syncBackFromSW 并发再次读到
       try {
         if (idbDB) {
           const tx = idbDB.transaction('kv', 'readwrite');
@@ -3798,7 +3820,6 @@ function addSongsToLibrary(songs){
   return added;
 }
 
-// 将“导入歌单”改为“网易云同步”
 function openNeteaseSync(){
   const m = openModal(`
     <div class="modal-title">网易云账号同步</div>
@@ -3865,7 +3886,6 @@ function openNeteaseSync(){
     listEl.querySelector('#plPlayAll').onclick = () => { addSongsToLibrary(songs); addSongAndPlay(songs[0]); closeModal(); showToast('正在播放：' + songs[0].name); };
   };
 }
-// 兼容旧函数名
 function openImportPlaylist(){ openNeteaseSync(); }
 
 function renderSongList(){
@@ -3974,7 +3994,6 @@ function viewListen(){
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <div class="field-label" style="margin:0;">网易云音乐账号</div>
-        <!-- 修改为 登录/同步 -->
         <button class="ncm-login-btn" onclick="openNeteaseSync()">登录 / 同步歌单</button>
       </div>
       <div style="font-size:11px;opacity:.6;line-height:1.7;margin-bottom:14px;">
@@ -4433,7 +4452,7 @@ function viewProfile(){
         <div class="set-row"><span>后台保活</span><div class="switch ${st.keepAlive?'on':''}" id="profileKeepAlive"></div></div>
         <div class="set-row"><span>系统通知推送</span><div class="switch ${st.pushEnabled?'on':''}" onclick="togglePushSwitch(this)"></div></div>
         <div class="set-row" onclick="testPush()" style="cursor:pointer;"><span>测试推送</span><span class="set-val">发送测试通知 ›</span></div>
-        <div class="set-row" onclick="openKeepAliveSettings()" style="cursor:pointer;"><span>更多保活设置</span><span class="set-val">音频通道 / 测试日志 ›</span></div>
+        <div class="set-row" onclick="openKeepAliveSettings()" style="cursor:pointer;"><span>更多保活设置</span><span class="set-val">音频通道 / 媒体卡片 / 测试日志 ›</span></div>
       </div>
 
       <div class="sec-title">应用安装</div>
