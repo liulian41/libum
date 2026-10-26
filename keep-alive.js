@@ -93,19 +93,39 @@ const KEEP = (() => {
     } catch (e) {}
   }
 
-  function startAudio() {
-    stopAudio();
+  // 创建并复用同一个音频元素。关键点：必须在用户首次交互时启动，
+  // 这样才拿到自动播放授权，切后台时再次播放才不会被打断。
+  function ensureAudioEl() {
+    if (audioEl) return audioEl;
     try {
       audioEl = new Audio(SILENT_WAV);
       audioEl.loop = true;
       audioEl.volume = 0.01; // 极小音量，骗过系统保活判定
-      audioEl.play().then(() => setMediaSession()).catch(() => {});
+      return audioEl;
+    } catch (e) { return null; }
+  }
+
+  function startAudio() {
+    const el = ensureAudioEl();
+    if (!el) return;
+    try {
+      const p = el.play();
+      if (p && typeof p.then === 'function') {
+        p.then(() => setMediaSession()).catch(() => {});
+      }
     } catch (e) {}
   }
 
   function stopAudio() {
-    if (audioEl) { try { audioEl.pause(); } catch (e) {} audioEl = null; }
+    if (audioEl) { try { audioEl.pause(); } catch (e) {} }
     try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch (e) {}
+  }
+
+  // 首次用户交互时预热：获得自动播放授权，之后切后台才能顺利播放
+  function primeAudio() {
+    if (!config.keepAlive) return;
+    ensureAudioEl();
+    startAudio();
   }
 
   /* ---------------- 4. 接收 SW 回传 ---------------- */
@@ -129,6 +149,20 @@ const KEEP = (() => {
         stopAudio();
       }
     });
+
+    // 首次触摸或点击时预热音频，拿到自动播放授权
+    let primed = false;
+    const prime = () => {
+      if (primed) return;
+      primed = true;
+      document.removeEventListener('touchstart', prime);
+      document.removeEventListener('click', prime);
+      primeAudio();
+    };
+    if (config.keepAlive) {
+      document.addEventListener('touchstart', prime);
+      document.addEventListener('click', prime);
+    }
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register(config.swPath).then(reg => {
