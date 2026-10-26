@@ -27,6 +27,8 @@ const KEEP = (() => {
     horizonMs: 5 * 60 * 1000,
     syncTag: 'libum-wake',
     keepAlive: false,
+    mediaTitle: '保持后台连接',   // 媒体卡片上显示的标题
+    mediaArtist: 'KeepAlive',     // 媒体卡片上显示的副标题
     // 把这里换成你的真实取任务函数，返回 future 内要交接的任务数组
     collectTasks: () => []
   };
@@ -66,9 +68,30 @@ const KEEP = (() => {
     return true;
   }
 
-  /* ---------------- 3. 循环静音音频防冻结 ---------------- */
+  /* ---------------- 3. 循环静音音频防冻结 + 媒体卡片 ---------------- */
   const SILENT_WAV = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
   let audioEl = null;
+
+  // 设置系统媒体卡片，并把控制按钮全部拦住，防止被暂停
+  function setMediaSession() {
+    try {
+      if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: config.mediaTitle || '保持后台连接',
+        artist: config.mediaArtist || 'KeepAlive',
+        album: 'KeepAlive'
+      });
+      navigator.mediaSession.playbackState = 'playing';
+      const guard = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        navigator.mediaSession.playbackState = 'playing';
+        if (audioEl && audioEl.paused) audioEl.play().catch(() => {});
+      };
+      ['play', 'pause', 'stop', 'previoustrack', 'nexttrack', 'seekbackward', 'seekforward'].forEach(a => {
+        try { navigator.mediaSession.setActionHandler(a, guard); } catch (e) {}
+      });
+    } catch (e) {}
+  }
 
   function startAudio() {
     stopAudio();
@@ -76,12 +99,13 @@ const KEEP = (() => {
       audioEl = new Audio(SILENT_WAV);
       audioEl.loop = true;
       audioEl.volume = 0.01; // 极小音量，骗过系统保活判定
-      audioEl.play().catch(() => {});
+      audioEl.play().then(() => setMediaSession()).catch(() => {});
     } catch (e) {}
   }
 
   function stopAudio() {
     if (audioEl) { try { audioEl.pause(); } catch (e) {} audioEl = null; }
+    try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch (e) {}
   }
 
   /* ---------------- 4. 接收 SW 回传 ---------------- */
