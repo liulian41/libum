@@ -48,7 +48,7 @@ html.app-hidden .watch-active-glow { animation-play-state: paused !important; }
 
 .screen{position:relative;z-index:10;flex:1;overflow:hidden;}
 .page{position:absolute;inset:0;display:flex;flex-direction:column;}
-.page-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 16px 24px;-webkit-overflow-scrolling:touch;}
+.page-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 16px 24px;-webkit-overflow-scrolling:touch;contain:layout;}
 .page-scroll::-webkit-scrollbar{width:0;height:0;}
 
 .tabbar{position:relative;z-index:20;flex:none;display:flex;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));background:rgba(255,255,255,.14);backdrop-filter:blur(var(--blur)) saturate(180%);-webkit-backdrop-filter:blur(var(--blur)) saturate(180%);border-top:1px solid rgba(255,255,255,.28);}
@@ -200,14 +200,14 @@ html.app-hidden .watch-active-glow { animation-play-state: paused !important; }
 
 .chat-body{flex:1;overflow-y:auto;padding:10px 14px 18px;display:flex;flex-direction:column;gap:12px;}
 .chat-body::-webkit-scrollbar{width:0;}
-.msg-row{display:flex;align-items:flex-end;gap:8px; width:100%;}
+.msg-row{display:flex;align-items:flex-end;gap:8px; width:100%;contain: layout style;}
 .msg-row.me{justify-content:flex-end;}
 .msg-avatar{width:34px;height:34px;object-fit:cover;flex:none;cursor:pointer;}
 .msg-avatar-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:none;}
 .msg-row.me .msg-avatar-col{order:2;}
 .msg-time{font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.02em;white-space:nowrap;text-shadow:0 1px 4px rgba(40,25,80,.25);}
-.bubble{width: fit-content;max-width:100%;padding:10px 14px;font-size:calc(14px * var(--fs));line-height:1.5;border-radius:18px;word-break:normal;overflow-wrap:break-word;background:rgba(255,255,255,.22);backdrop-filter:blur(var(--blur)) saturate(170%);-webkit-backdrop-filter:blur(var(--blur)) saturate(170%);border:1px solid rgba(255,255,255,.3);box-shadow:0 4px 16px rgba(50,35,100,.1);position:relative;-webkit-touch-callout:none;}
-.msg-row.me .bubble{background:rgba(255,255,255,.42);border-color:rgba(255,255,255,.55);}
+.bubble{width: fit-content;max-width:100%;padding:10px 14px;font-size:calc(14px * var(--fs));line-height:1.5;border-radius:18px;word-break:normal;overflow-wrap:break-word;background:rgba(40,32,70,.52);border:1px solid rgba(255,255,255,.3);box-shadow:0 4px 16px rgba(50,35,100,.1);position:relative;-webkit-touch-callout:none;backdrop-filter:none;-webkit-backdrop-filter:none;}
+.msg-row.me .bubble{background:rgba(255,255,255,.72);color:#3a3358;border-color:rgba(255,255,255,.55);}
 
 /* 更轻盈的进入动画 */
 @keyframes msgInMe {
@@ -380,7 +380,7 @@ html.app-hidden .watch-active-glow { animation-play-state: paused !important; }
 .moment-author{font-size:13.5px;font-weight:600;color:#fff;}
 .moment-text{font-size:13.5px;line-height:1.58;margin-top:6px;word-break:break-word;white-space:pre-wrap;}
 .moment-imgs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:9px;}
-.moment-imgs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;}
+.moment-imgs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;content-visibility:auto;}
 .moment-time{font-size:10.5px;color:rgba(255,255,255,.55);margin-top:8px;}
 .moment-bar{display:flex;gap:16px;margin-top:9px;align-items:center;}
 .moment-act{display:flex;align-items:center;gap:5px;font-size:11.5px;color:rgba(255,255,255,.8);}
@@ -617,6 +617,24 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
 .watch-bubble.me { background:rgba(226,154,216,.5);border-color:rgba(255,255,255,.35); }
 
 .watch-inputbar { flex:none;display:flex;align-items:center;gap:9px;padding:9px 12px calc(9px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.25); }
+
+/* ==================== 性能优化补丁 ==================== */
+html:not(.on-home) .app::before,
+html:not(.on-home) .watch-active-glow {
+  animation-play-state: paused !important;
+}
+@media (max-width: 480px) {
+  .list-item, .card-box, .letter-card, .companion-card,
+  .listen-hero, .postcard, .desk-app-ico, .watch-active-card,
+  .subhead-title-capsule, .tabbar {
+    backdrop-filter: blur(8px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(140%) !important;
+  }
+  .modal, .full-settings-overlay, .call-full {
+    backdrop-filter: blur(16px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
+  }
+}
 </style></head><body>
 <div class="app" id="app">
   <header class="system-bar" id="systemBar">
@@ -1106,14 +1124,32 @@ function clone(o){return JSON.parse(JSON.stringify(o));}
 const ASSET_REF = '@@asset:';
 const __assetCache = new Map();
 let __assetSeq = 0;
+const __ASSET_CACHE_MAX = 200;
+
+function _assetKeyOf(s) {
+  const n = s.length;
+  const head = s.slice(0, 64);
+  const tail = s.slice(-64);
+  const str = head + '|' + n + '|' + tail;
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return 'h' + (h >>> 0).toString(36) + '_' + n.toString(36);
+}
 
 function packAssets(obj){
   const assets = {};
   const walk = (v) => {
     if (typeof v === 'string') {
       if (v.length > 512 && v.startsWith('data:')) {
-        let k = __assetCache.get(v);
-        if (!k) { k = 'k' + (__assetSeq++); __assetCache.set(v, k); }
+        const k = _assetKeyOf(v);
+        if (__assetCache.has(k)) __assetCache.delete(k);
+        __assetCache.set(k, v);
+        if (__assetCache.size > __ASSET_CACHE_MAX) {
+          const firstKey = __assetCache.keys().next().value;
+          __assetCache.delete(firstKey);
+        }
         assets[k] = v;
         return ASSET_REF + k;
       }
@@ -1293,6 +1329,8 @@ function idbDelete(key){
 
 let saveTimer = null;
 let lsBackupWarned = false;
+let _lastLocalBackupTime = 0;
+const LOCAL_BACKUP_INTERVAL = 8000;
 
 function doSave(){
   S.__savedAt = Date.now();
@@ -1305,19 +1343,35 @@ function doSave(){
 
   const full = JSON.stringify({ v: 2, savedAt: S.__savedAt, assets, state: packed });
 
+  // ① IDB 主存（异步，不阻塞主线程）
   try { idbSet('libum_data', full); } catch(e){ console.warn('IDB 写入失败', e); }
 
-  const LS_LIMIT = 800 * 1024;
-  if (full.length < LS_LIMIT) {
-    try {
-      localStorage.setItem('libum_data', full);
-      localStorage.setItem('libum_last_saved', S.__savedAt.toString());
-    } catch(e){
-      try { localStorage.setItem('libum_last_saved', S.__savedAt.toString()); } catch(e2){}
-      if (!lsBackupWarned) {
-        lsBackupWarned = true;
-        setTimeout(() => { try { showToast('数据量较大，请定期导出备份'); } catch(x){} }, 2500);
+  // ② localStorage 备份：限频 + 空闲时写入
+  const now = Date.now();
+  const needBackup = now - _lastLocalBackupTime >= LOCAL_BACKUP_INTERVAL;
+  const doBackup = () => {
+    const LS_LIMIT = 800 * 1024;
+    if (full.length < LS_LIMIT) {
+      try {
+        localStorage.setItem('libum_data', full);
+        localStorage.setItem('libum_last_saved', S.__savedAt.toString());
+      } catch(e){
+        try { localStorage.setItem('libum_last_saved', S.__savedAt.toString()); } catch(e2){}
+        if (!lsBackupWarned) {
+          lsBackupWarned = true;
+          setTimeout(() => { try { showToast('数据量较大，请定期导出备份'); } catch(x){} }, 2500);
+        }
       }
+    } else {
+      try { localStorage.setItem('libum_last_saved', S.__savedAt.toString()); } catch(e2){}
+    }
+  };
+  if (needBackup) {
+    _lastLocalBackupTime = now;
+    if (window.requestIdleCallback) {
+      requestIdleCallback(doBackup, { timeout: 3000 });
+    } else {
+      setTimeout(doBackup, 0);
     }
   } else {
     try { localStorage.setItem('libum_last_saved', S.__savedAt.toString()); } catch(e2){}
@@ -1621,10 +1675,13 @@ let chatCtx={id:null};
 let typingState = {};
 let quoteState = null;
 let lastScrollKey = '';
+let _chatShowAll = false;
+const CHAT_RENDER_LIMIT = 50;
 
 function go(name,params){
   if(TABS.includes(name)){stack=[{name,params:params||{}}];}
   else{stack.push({name,params:params||{}});}
+  if (name === 'chatRoom' || TABS.includes(name)) _chatShowAll = false;
   if (name === 'chatList' || name === 'chatRoom') { if (params && params.id) S.unread.chats[params.id] = 0; else S.unread.chats = {}; }
   if (name === 'moments') { S.unread.moments = 0; }
   if (name === 'mail') { S.unread.letters = 0; }
@@ -1633,6 +1690,11 @@ function go(name,params){
   render();
 }
 function back(){ if(stack.length>1){ stack.pop(); lastScrollKey = ''; render(); } }
+
+function loadMoreChat(){
+  _chatShowAll = true;
+  refreshChat({ full: true });
+}
 
 function updateBadges() {
   const tabs = $$('#tabbar .tab');
@@ -1667,20 +1729,28 @@ function render(){
   let savedScroll = 0;
   if(activeScroll && lastScrollKey === newKey){ savedScroll = activeScroll.scrollTop; }
   const isTab=stack.length===1&&TABS.includes(cur.name);
-  $('#tabbar').style.display=isTab?'flex':'none';
+  const tabbar = $('#tabbar');
+  tabbar.style.display=isTab?'flex':'none';
   const clock = $('#clock'); if(clock) clock.textContent = nowTime();
   if (cur.name === 'chatRoom') { $('#app').classList.add('in-chat'); } else { $('#app').classList.remove('in-chat'); }
+  document.documentElement.classList.toggle('on-home', cur.name === 'home');
   const tabs=[
     {id:'home',label:'首页',icon:'home'},
     {id:'contacts',label:'联系人',icon:'users'},
     {id:'moments',label:'朋友圈',icon:'moments'},
     {id:'profile',label:'个人主页',icon:'profile'}
   ];
-  $('#tabbar').innerHTML=tabs.map(t=>`
-    <button class="tab ${isTab&&cur.name===t.id?'active':''}" onclick="go('${t.id}')">
-      <span class="tab-ico">${ICONS[t.icon]}<span class="badge-dot"></span></span>
-      <span>${t.label}</span>
-    </button>`).join('');
+  if (!tabbar.dataset.inited) {
+    tabbar.innerHTML = tabs.map(t=>`
+      <button class="tab" data-tab="${t.id}" onclick="go('${t.id}')">
+        <span class="tab-ico">${ICONS[t.icon]}<span class="badge-dot"></span></span>
+        <span>${t.label}</span>
+      </button>`).join('');
+    tabbar.dataset.inited = '1';
+  }
+  tabbar.querySelectorAll('.tab').forEach(btn => {
+    btn.classList.toggle('active', isTab && cur.name === btn.dataset.tab);
+  });
   const screen=$('#screen');
   const fn=VIEWS[cur.name];
   screen.innerHTML=fn?fn(cur.params):'';
@@ -1854,7 +1924,8 @@ function bindLiveChatSettings(overlay, cs, cid){
   const cardJump = overlay.querySelector('#fsCardJump');
   if(cardJump) cardJump.addEventListener('click', () => { closeFullSettings(); cardsTab = 'chat'; go('cards'); });
   syncUI();
-}function openFullSettings() {
+}
+function openFullSettings() {
   const cur = stack[stack.length-1];
   const isChat = cur.name === 'chatRoom';
   const cid = isChat ? cur.params.id : null;
@@ -2319,7 +2390,12 @@ function viewChatRoom(p){
   if(!c) return `<div class="page"><div class="empty">联系人不存在</div></div>`;
   chatCtx.id=c.id;
   const cs=getChatSettings(c.id);
-  const msgs=S.chats[c.id]||[];
+  const allMsgs=S.chats[c.id]||[];
+  const hideCount = _chatShowAll ? 0 : Math.max(0, allMsgs.length - CHAT_RENDER_LIMIT);
+  const msgs = hideCount > 0 ? allMsgs.slice(hideCount) : allMsgs;
+  const moreBtn = hideCount > 0
+    ? `<div style="text-align:center;padding:8px 0 4px;"><button class="chip" onclick="loadMoreChat()" style="padding:5px 14px;font-size:11.5px;">查看更早的 ${hideCount} 条消息</button></div>`
+    : '';
   const hasBg = !!cs.bg;
   const bgDim = cs.bgDim || 0;
   const bgStyle = hasBg ? `background:url('${cs.bg}') center/cover;` : '';
@@ -2334,7 +2410,7 @@ function viewChatRoom(p){
       <div class="subhead-actions"><button class="icon-btn" onclick="startCall()">${ICONS.phone}</button><button class="icon-btn" onclick="openFullSettings()">${ICONS.more}</button></div>
     </div>
     <div class="chat-body" id="chatBody">
-      ${msgs.map((m,i)=>msgHTML(m,c,cs,i===msgs.length-1)).join('')}
+      ${moreBtn}${msgs.map((m,i)=>msgHTML(m,c,cs,i===msgs.length-1)).join('')}
       <div class="msg-row mj typing-row" id="typingIndicatorRow"><div class="msg-avatar-col"><img class="msg-avatar" src="" id="typingAvatar" style="${radiusStyle}"></div><div style="display:flex;flex-direction:column;align-items:flex-start;max-width:74%;min-width:0;"><div class="bubble" style="display:flex;align-items:center;gap:4px;padding:10px 14px;"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div></div></div>
     </div>
     <div class="chat-inputbar" style="position:relative;">
@@ -2770,39 +2846,43 @@ function refreshChat(opts){
   const body = $('#chatBody'); if(!body) return;
   const c = getContact(chatCtx.id); if(!c) return;
   const cs = getChatSettings(chatCtx.id);
-  const msgs = S.chats[chatCtx.id] || [];
+  const allMsgs = S.chats[chatCtx.id] || [];
+
+  const hideCount = _chatShowAll ? 0 : Math.max(0, allMsgs.length - CHAT_RENDER_LIMIT);
+  const msgs = hideCount > 0 ? allMsgs.slice(hideCount) : allMsgs;
 
   const avatarShape = S.settings.avatarShape || 'rounded';
   const radiusStyle = avatarShape === 'square' ? 'border-radius: 4px;' : 'border-radius: 12px;';
   const typingHTML = `<div class="msg-row mj typing-row" id="typingIndicatorRow"><div class="msg-avatar-col"><img class="msg-avatar" src="" id="typingAvatar" style="${radiusStyle}"></div><div style="display:flex;flex-direction:column;align-items:flex-start;max-width:74%;min-width:0;"><div class="bubble" style="display:flex;align-items:center;gap:4px;padding:10px 14px;"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div></div></div>`;
+  const moreBtn = hideCount > 0
+    ? `<div style="text-align:center;padding:8px 0 4px;"><button class="chip" onclick="loadMoreChat()" style="padding:5px 14px;font-size:11.5px;">查看更早的 ${hideCount} 条消息</button></div>`
+    : '';
 
   const existingEls = Array.from(body.querySelectorAll(':scope > [data-msg-id]'));
   const existingIds = existingEls.map(el => el.dataset.msgId);
   const existingSet = new Set(existingIds);
   const typingRow = body.querySelector('#typingIndicatorRow');
 
-  let orderMatches = !!typingRow && existingIds.length === msgs.length;
-  if (orderMatches) {
-    for (let i = 0; i < msgs.length; i++) {
-      if (existingIds[i] !== msgs[i].id) { orderMatches = false; break; }
+  let canAppend = !!typingRow && existingIds.length > 0 && existingIds.length <= msgs.length;
+  if (canAppend) {
+    const offset = msgs.length - existingIds.length;
+    for (let i = 0; i < existingIds.length; i++) {
+      if (existingIds[i] !== msgs[offset + i].id) { canAppend = false; break; }
     }
   }
 
-  if (opts.full || !orderMatches) {
-    body.innerHTML = msgs.map((m, i) => msgHTML(m, c, cs, i === msgs.length - 1)).join('') + typingHTML;
+  if (opts.full || !canAppend) {
+    body.innerHTML = moreBtn + msgs.map((m, i) => msgHTML(m, c, cs, i === msgs.length - 1)).join('') + typingHTML;
   } else {
-    const newMsgs = msgs.filter(m => !existingSet.has(m.id));
-    if (newMsgs.length > 0) {
-      newMsgs.forEach(m => {
-        const isLast = msgs[msgs.length - 1].id === m.id;
-        const html = msgHTML(m, c, cs, isLast);
-        const temp = document.createElement('div');
-        temp.innerHTML = html.trim();
-        const newNode = temp.firstElementChild;
-        if (!newNode) return;
-        body.insertBefore(newNode, typingRow);
-      });
-    }
+    const newMsgs = msgs.slice(existingIds.length);
+    newMsgs.forEach(m => {
+      const isLast = msgs[msgs.length - 1].id === m.id;
+      const html = msgHTML(m, c, cs, isLast);
+      const temp = document.createElement('div');
+      temp.innerHTML = html.trim();
+      const newNode = temp.firstElementChild;
+      if (newNode) body.insertBefore(newNode, typingRow);
+    });
   }
 
   const newTypingRow = $('#typingIndicatorRow');
@@ -3359,7 +3439,6 @@ function checkAllTimers(){
   }
 
   simulateOtherPat();
-  simulateOtherPat();
 
   if (S.settings.mjMoment && S.contacts.length) {
     const myMoments = S.moments.filter(m => m.authorId === 'me');
@@ -3412,7 +3491,7 @@ function safeTick(force){
   __lastTick = now;
   try { checkAllTimers(); } catch(e){ console.error('tick error', e); }
 }
-setInterval(safeTick, 15000);
+setInterval(safeTick, 30000);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     __lastTick = 0;
@@ -3585,8 +3664,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     try { save(true); } catch(e) {}
     handoffToSW();
-  } else {
-    syncBackFromSW();
   }
 });
 
@@ -4505,6 +4582,7 @@ function resetAll(){
     stack = [{name:'home',params:{}}];
     lastScrollKey = '';
     applySettings();
+    const tb = $('#tabbar'); if (tb) delete tb.dataset.inited;
     render();
     showToast('数据已清空');
   };
@@ -5360,7 +5438,6 @@ async function initStorage(){
       });
     }
     if (consumed) save(true);
-    // 消费完成后才删除队列，避免异常时消息丢失
     try { idbDelete('libum_queue'); } catch(e) {}
   }
 } catch(e){ console.warn('SW 队列恢复失败', e); }
@@ -5461,7 +5538,6 @@ async function initStorage(){
 
   checkBackupTip();
 
-  // 补发上次未发送成功的系统通知（防漏）
   (async () => {
     try {
       const fb = await idbGet('libum_notif_fallback');
