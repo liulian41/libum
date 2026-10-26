@@ -27,11 +27,9 @@ input,textarea,select{outline:none;border:none;background:none;}
 .app::before{content:'';position:absolute;inset:-30%;pointer-events:none;z-index:0;background:radial-gradient(38% 34% at 24% 18%, rgba(255,255,255,.42), transparent 70%),radial-gradient(44% 38% at 82% 74%, rgba(255,175,215,.42), transparent 70%),radial-gradient(34% 30% at 66% 12%, rgba(160,200,255,.38), transparent 70%);filter:blur(34px);animation:floatBg 26s ease-in-out infinite alternate;opacity:.55;}
 @keyframes floatBg{from{transform:translate3d(-2%,-1%,0) scale(1)}to{transform:translate3d(3%,2%,0) scale(1.08)}}
 
-/* 后台暂停动画，省 GPU */
 html.app-hidden .app::before { animation-play-state: paused !important; }
 html.app-hidden .watch-active-glow { animation-play-state: paused !important; }
 
-/* 小屏降低 backdrop-filter 成本 */
 @media (max-width: 480px){
   :root { --blur: 14px; --anniv-blur: 12px; }
   .tabbar, .chat-inputbar, .bubble, .list-item, .card-box,
@@ -610,14 +608,10 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   <nav class="tabbar" id="tabbar"></nav>
 </div>
 <div id="layerRoot"></div>
-<style id="customCssStyle"></style><script>
+<style id="customCssStyle"></style>
+<script>
 /* ==========================================================================
-   Libum 后台引擎（精修版 · 只保留有效保活）
-   - Worker 心跳（只做 audio resume）
-   - 静音 AudioContext（仅页面 hidden 时启动）
-   - Wake Lock
-   - MediaSession（只设一次）
-   - 通知 / HeadsUp
+   Libum 后台引擎（升级版 · 支持自定义音频/静音通道/保活统计）
    ========================================================================== */
 (function() {
   let isKeepEnabled = false;
@@ -625,9 +619,20 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   let kaWorker = null;
   let keepAudioCtx = null;
   let keepAudioSrc = null;
+  let keepAudioEl = null; 
+  let currentAudioMode = 'none';
   let wakeSentinel = null;
   let lastHiddenAt = 0;
   let pendingNotifications = [];
+  
+  let keepStats = { 
+    heartbeats: 0, 
+    maxSurvival: 0, 
+    lastSurvival: 0, 
+    disconnectCount: 0, 
+    terminationCount: 0, 
+    connected: true 
+  };
 
   const SAFE_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="20" fill="#a58cf0"/><text x="48" y="62" font-size="42" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="bold">L</text></svg>');
 
@@ -639,6 +644,8 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
       kaWorker = new Worker(URL.createObjectURL(blob));
       kaWorker.onmessage = (e) => {
         if (e.data === 'beat' && isKeepEnabled) {
+          keepStats.heartbeats++;
+          keepStats.connected = true;
           if (keepAudioCtx && keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
         }
       };
@@ -646,39 +653,48 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
     } catch (err) {}
   }
 
-  /* 静音音频：只在后台开启，真实 buffer 而非 gain 0 */
-  function startSilentAudio() {
-    if (keepAudioCtx) {
-      if (keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
-      return;
-    }
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      keepAudioCtx = new AC();
-      const sr = keepAudioCtx.sampleRate;
-      const buf = keepAudioCtx.createBuffer(1, sr, sr);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.sin(2 * Math.PI * 40 * i / sr) * 0.00005;
-      const src = keepAudioCtx.createBufferSource();
-      src.buffer = buf; src.loop = true;
-      const gain = keepAudioCtx.createGain();
-      gain.gain.value = 0.0001;
-      src.connect(gain).connect(keepAudioCtx.destination);
-      src.start();
-      keepAudioSrc = src;
-      if (keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
-    } catch (e) {}
-  }
-
   function stopSilentAudio() {
     try {
       if (keepAudioSrc) { try { keepAudioSrc.stop(); } catch(e){} keepAudioSrc = null; }
       if (keepAudioCtx) { keepAudioCtx.close().catch(()=>{}); keepAudioCtx = null; }
+      if (keepAudioEl) { keepAudioEl.pause(); keepAudioEl = null; }
+      currentAudioMode = 'none';
     } catch (e) {}
   }
 
-  /* MediaSession 只设一次 */
+  function startSilentAudio() {
+    stopSilentAudio();
+    
+    if (window.S && S.settings.customKeepAudio && !S.settings.dontStealAudio) {
+      try {
+        keepAudioEl = new Audio(S.settings.customKeepAudio);
+        keepAudioEl.loop = true;
+        keepAudioEl.volume = 1;
+        keepAudioEl.play().catch(()=>{});
+        currentAudioMode = 'media';
+      } catch(e) {}
+    } else {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        keepAudioCtx = new AC();
+        const sr = keepAudioCtx.sampleRate;
+        const buf = keepAudioCtx.createBuffer(1, sr, sr);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.sin(2 * Math.PI * 40 * i / sr) * 0.00005;
+        const src = keepAudioCtx.createBufferSource();
+        src.buffer = buf; src.loop = true;
+        const gain = keepAudioCtx.createGain();
+        gain.gain.value = 0.0001;
+        src.connect(gain).connect(keepAudioCtx.destination);
+        src.start();
+        keepAudioSrc = src;
+        if (keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
+        currentAudioMode = 'webaudio';
+      } catch (e) {}
+    }
+  }
+
   let msSet = false;
   function setMediaSession() {
     if (msSet) return;
@@ -709,6 +725,15 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
       document.documentElement.classList.remove('app-hidden');
       if (!isKeepEnabled) return;
       const awayMs = lastHiddenAt ? Date.now() - lastHiddenAt : 0;
+      
+      if (awayMs > 0) {
+        keepStats.lastSurvival = Math.floor(awayMs / 1000);
+        if (keepStats.lastSurvival > keepStats.maxSurvival) {
+          keepStats.maxSurvival = keepStats.lastSurvival;
+        }
+        if (awayMs > 30000) keepStats.terminationCount++;
+      }
+
       lastHiddenAt = 0;
       stopSilentAudio();
       if (navigator.wakeLock) requestWakeLock();
@@ -730,9 +755,7 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
       const n = new Notification(title, payload);
       n.onclick = () => { try { window.focus(); } catch(e){} n.close(); if (data && data.cid && window.go) window.go('chatRoom', { id: data.cid }); };
       setTimeout(() => { try { n.close(); } catch(e){} }, 8000);
-    } catch (e) {
-      pendingNotifications.push({ title, body, tag, data });
-    }
+    } catch (e) {}
   }
 
   function showHeadsUp(avatar, title, text, onClick) {
@@ -753,6 +776,7 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
     startKeepAlive() {
       if (isKeepEnabled) return;
       isKeepEnabled = true;
+      keepStats = { heartbeats: 0, maxSurvival: 0, lastSurvival: 0, disconnectCount: 0, terminationCount: 0, connected: true };
       initWorker();
       setMediaSession();
       requestWakeLock();
@@ -766,6 +790,19 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
       try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch(e){}
     },
     setPushEnabled(enabled) { isPushEnabled = enabled; },
+    getStatus() {
+      return {
+        running: isKeepEnabled,
+        audioMode: currentAudioMode,
+        survivalTime: lastHiddenAt ? Math.floor((Date.now() - lastHiddenAt) / 1000) : 0,
+        maxSurvival: keepStats.maxSurvival,
+        lastSurvival: keepStats.lastSurvival,
+        heartbeats: keepStats.heartbeats,
+        connected: keepStats.connected,
+        disconnectCount: keepStats.disconnectCount,
+        terminationCount: keepStats.terminationCount
+      };
+    },
     push(title, body, tag, data, isForeground = false, avatar = '') {
       if (document.visibilityState === 'hidden' || !isForeground) { fireNotification(title, body, tag, data); }
       else { showHeadsUp(avatar || SAFE_ICON, title, body, () => { if (data && data.cid && window.go) window.go('chatRoom', { id: data.cid }); }); }
@@ -774,13 +811,10 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
 
   window.__kaCatchupHook = function(awayMs) {
     if (awayMs < 10000) return;
-    while (pendingNotifications.length > 0) { const n = pendingNotifications.shift(); fireNotification(n.title, n.body, n.tag, n.data); }
     if (window.__checkTimersHook) { try { window.__checkTimersHook(); } catch(e){} }
   };
 })();
-
-/* ========================================================= */
-
+</script><script>
 function encodeToken(str){
   try{
     const bytes = new TextEncoder().encode(str);
@@ -977,7 +1011,7 @@ const DEFAULT_STATE={
     stickerSize:120,autoMsgMin: 2,autoMsgMax: 6,autoMsgUnit: 'hours',
     avatarShape: 'rounded',customCss: '',
     redPacketPool: [5.20, 13.14, 52.00, 99.00],useRandomAmount: true,
-    keepAlive: true,pushEnabled: true,lastBackupTip: 0,
+    keepAlive: true,pushEnabled: true,dontStealAudio: true,customKeepAudio: null,lastBackupTip: 0,
     patRate: 15,
     playMode: 'list',
     visitorRate: 50, visitorMinHours: 2, visitorMaxHours: 8, nextVisitorTime: null,
@@ -996,7 +1030,6 @@ function deepMerge(base,extra){
 function clone(o){return JSON.parse(JSON.stringify(o));}
 
 const ASSET_REF = '@@asset:';
-
 const __assetCache = new Map();
 let __assetSeq = 0;
 
@@ -1077,6 +1110,8 @@ function normalizeState(){
   if(!Array.isArray(S.settings.redPacketPool)) S.settings.redPacketPool = [5.20, 13.14, 52.00, 99.00];
   if(S.settings.useRandomAmount === undefined) S.settings.useRandomAmount = true;
   if(S.settings.keepAlive === undefined) S.settings.keepAlive = true;
+  if(S.settings.dontStealAudio === undefined) S.settings.dontStealAudio = true;
+  if(S.settings.customKeepAudio === undefined) S.settings.customKeepAudio = null;
   if(S.settings.patRate == null) S.settings.patRate = 15;
   if(S.settings.pushEnabled === undefined) S.settings.pushEnabled = true;
   if(S.settings.lastBackupTip === undefined) S.settings.lastBackupTip = 0;
@@ -1249,7 +1284,6 @@ document.addEventListener('touchstart', requestPersistentStorage, { once: true, 
 let audio = null;
 let audioTimer = null;
 let audioSongId = null;
-
 let keepUserTouched = false;
 
 async function requestNotificationPermission(){
@@ -1283,9 +1317,84 @@ async function togglePushSwitch(el){
   await setPushEnabled(next);
 }
 
-function exportData(){
+async function exportData(){
+  if (exportData._running) return;
+  exportData._running = true;
+  let loadingEl = null;
   try{
-    const dataStr = JSON.stringify(S, null, 2);
+    const blobUrls = new Set();
+    const collect = (obj, depth) => {
+      if (depth > 20 || obj == null) return;
+      if (typeof obj === 'string') {
+        if (obj.startsWith('blob:')) blobUrls.add(obj);
+        return;
+      }
+      if (Array.isArray(obj)) { for (const v of obj) collect(v, depth + 1); return; }
+      if (typeof obj === 'object') { for (const k in obj) collect(obj[k], depth + 1); }
+    };
+    collect(S, 0);
+
+    let urlMap = {};
+    if (blobUrls.size) {
+      loadingEl = document.createElement('div');
+      loadingEl.className = 'modal-mask';
+      loadingEl.innerHTML = `<div class="modal" style="text-align:center;padding:28px 24px;">
+        <div class="modal-title" style="margin-bottom:14px;">正在打包本地音频</div>
+        <div style="font-size:13px;opacity:.75;line-height:1.8;">
+          共 ${blobUrls.size} 个文件<br>
+          <span id="exportProgress">0 / ${blobUrls.size}</span>
+        </div>
+        <div style="font-size:11px;opacity:.55;margin-top:12px;line-height:1.6;">
+          音频越大耗时越久，请稍候…
+        </div>
+      </div>`;
+      $('#layerRoot').appendChild(loadingEl);
+      await new Promise(r => setTimeout(r, 50));
+
+      let done = 0;
+      for (const url of blobUrls) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('fetch failed');
+          const blob = await res.blob();
+          const dataUrl = await new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result);
+            fr.onerror = () => reject(fr.error);
+            fr.readAsDataURL(blob);
+          });
+          urlMap[url] = dataUrl;
+        } catch (e) {
+          console.warn('本地音频打包失败', url, e);
+        }
+        done++;
+        const pe = document.getElementById('exportProgress');
+        if (pe) pe.textContent = `${done} / ${blobUrls.size}`;
+      }
+    }
+
+    const data = JSON.parse(JSON.stringify(S));
+    const replace = (obj, depth) => {
+      if (depth > 20 || obj == null) return;
+      if (Array.isArray(obj)) {
+        for (let i = 0; i < obj.length; i++) {
+          const v = obj[i];
+          if (typeof v === 'string' && urlMap[v]) obj[i] = urlMap[v];
+          else if (v && typeof v === 'object') replace(v, depth + 1);
+        }
+        return;
+      }
+      if (typeof obj === 'object') {
+        for (const k in obj) {
+          const v = obj[k];
+          if (typeof v === 'string' && urlMap[v]) obj[k] = urlMap[v];
+          else if (v && typeof v === 'object') replace(v, depth + 1);
+        }
+      }
+    };
+    if (Object.keys(urlMap).length) replace(data, 0);
+
+    const dataStr = JSON.stringify(data, null, 2);
     const blob = new Blob([dataStr], {type:'application/json;charset=utf-8'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1294,10 +1403,18 @@ function exportData(){
     a.href = url; a.download = `libum_backup_${stamp}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 500);
+
     S.settings.lastBackupTip = Date.now(); save();
-    showToast('已导出备份文件');
-  }catch(e){ showToast('导出失败：' + (e.message||'')); }
+    const sizeMB = (dataStr.length / 1024 / 1024).toFixed(1);
+    showToast(blobUrls.size ? `已导出备份（含 ${blobUrls.size} 个音频，约 ${sizeMB} MB）` : '已导出备份文件');
+  }catch(e){
+    showToast('导出失败：' + (e.message||''));
+  }finally{
+    if (loadingEl) loadingEl.remove();
+    exportData._running = false;
+  }
 }
+
 function importData(){
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = '.json,application/json';
@@ -1316,6 +1433,13 @@ function importData(){
           const merged = S.cards.patReply.map(it => ({ id: uid(), text: (typeof it === 'object' ? it.text : it) || '拍了拍你的肩膀', group: '默认分组' }));
           S.cards.pat = merged;
           delete S.cards.patReply;
+        }
+        const staleSongs = (S.songs || []).filter(s =>
+          s && typeof s.url === 'string' && s.url.startsWith('blob:')
+        );
+        staleSongs.forEach(s => { s.urlInvalid = true; });
+        if (staleSongs.length) {
+          setTimeout(() => showToast(`${staleSongs.length} 首本地音频需要重新选择文件`), 900);
         }
         save(true); lastScrollKey = ''; applySettings(); render();
         showToast('数据已导入');
@@ -1472,16 +1596,19 @@ function back(){ if(stack.length>1){ stack.pop(); lastScrollKey = ''; render(); 
 function updateBadges() {
   const tabs = $$('#tabbar .tab');
   if (tabs.length) {
-    tabs[0].querySelector('.badge-dot').classList.remove('show');
-    tabs[1].querySelector('.badge-dot').classList.remove('show');
-    tabs[2].querySelector('.badge-dot').classList.toggle('show', S.unread.moments > 0);
-    tabs[3].querySelector('.badge-dot').classList.remove('show');
+    const setTabBadge = (tab, show) => { const bd = tab.querySelector('.badge-dot'); if (bd) bd.classList.toggle('show', !!show); };
+    setTabBadge(tabs[0], false);
+    setTabBadge(tabs[1], false);
+    setTabBadge(tabs[2], S.unread.moments > 0);
+    setTabBadge(tabs[3], false);
   }
   const deskApps = $$('.desk-app');
   if (deskApps.length >= 4) {
-    const hasChatUnread = Object.values(S.unread.chats).some(n => n > 0);
-    deskApps[0].querySelector('.badge-dot').classList.toggle('show', hasChatUnread);
-    deskApps[3].querySelector('.badge-dot').classList.toggle('show', S.unread.letters > 0);
+    const hasChatUnread = Object.values(S.unread.chats || {}).some(n => n > 0);
+    const bd0 = deskApps[0].querySelector('.badge-dot');
+    const bd3 = deskApps[3].querySelector('.badge-dot');
+    if (bd0) bd0.classList.toggle('show', hasChatUnread);
+    if (bd3) bd3.classList.toggle('show', S.unread.letters > 0);
   }
   try{
     if('setAppBadge' in navigator){
@@ -1569,9 +1696,6 @@ function applySettings(){
   }
   dimLayer.style.background = dimVal > 0 ? `rgba(0,0,0,${dimVal/100})` : 'transparent';
   $('#customCssStyle').innerHTML = S.settings.customCss || '';
-  if(S.settings.keepAlive && !window.KeepAliveStarted){
-    // LibumEngine start is handled outside
-  }
 }
 function pickTheme(k, el){
   S.settings.theme = k; save(); applySettings();
@@ -1780,10 +1904,6 @@ function openFullSettings() {
         <div class="set-row"><span>使用随机金额</span><div class="switch ${S.settings.useRandomAmount?'on':''}" id="fsUseRandom"></div></div>
         <div class="set-row" style="flex-direction:column;align-items:flex-start;gap:6px;"><span style="font-size:13px;">金额池（元，逗号分隔）</span><input class="field-input" id="fsRedPacketPool" placeholder="5.20, 13.14, 52, 99" value="${(S.settings.redPacketPool||[]).join(', ')}" style="width:100%;height:38px;margin-bottom:0;font-size:13px;"></div>
       </div>
-      <div class="sec-title">后台运行</div>
-      <div class="card-box"><div class="set-row"><span>后台保活</span><div class="switch ${S.settings.keepAlive?'on':''}" id="fsKeepAlive"></div></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">开启后应用会尝试保持后台连接（Worker 心跳 + 静音音频 + Wake Lock + MediaSession + SW 定时任务）。<br>受移动系统限制，<b>无法保证</b>完全关闭或长时间后台后仍实时收消息。切回前台时会立即补发。</div></div></div>
-      <div class="sec-title">消息推送</div>
-      <div class="card-box"><div class="set-row"><span>开启系统通知</span><div class="switch ${S.settings.pushEnabled?'on':''}" id="fsPushEnabled"></div></div><div class="set-row" onclick="testPush()" style="cursor:pointer;"><span>测试推送</span><span class="set-val">发送一条测试通知 ›</span></div></div>
       <div class="sec-title">意见反馈</div>
       <div class="card-box"><div class="set-row" onclick="closeFullSettings();openFeedback()" style="cursor:pointer;"><span>反馈与建议</span><span class="set-val">告诉我们你的想法 ›</span></div></div>
       <div class="sec-title">数据管理</div>
@@ -1805,15 +1925,6 @@ function openFullSettings() {
     bindLiveChatSettings(overlay, cs, cid);
   } else {
     const sw = overlay.querySelector('#fsUseRandom'); if (sw) sw.onclick = function() { this.classList.toggle('on'); };
-    const pu = overlay.querySelector('#fsPushEnabled'); if (pu) pu.onclick = async function(){ await togglePushSwitch(this); };
-    const ka = overlay.querySelector('#fsKeepAlive');
-    if (ka) ka.onclick = function() {
-      this.classList.toggle('on');
-      S.settings.keepAlive = this.classList.contains('on');
-      save();
-      if(S.settings.keepAlive) enableKeepAliveNow();
-      else stopKeepAlive();
-    };
     const mjc = overlay.querySelector('#fsMjCombine');
     if (mjc) mjc.onclick = function() { this.classList.toggle('on'); S.settings.mjMomentCombine = this.classList.contains('on'); save(); };
     const mjr = overlay.querySelector('#fsMjMultiReply');
@@ -1823,6 +1934,114 @@ function openFullSettings() {
   }
 }
 function closeFullSettings(){ const el = $('#fullSettingsOverlay'); if(el) el.remove(); }
+
+function openKeepAliveSettings() {
+  const root = $('#layerRoot');
+  const overlay = document.createElement('div');
+  overlay.className = 'full-settings-overlay'; overlay.id = 'keepAliveSettingsOverlay';
+  
+  const bodyHtml = `
+    <div class="sec-title">新消息提醒</div>
+    <div class="card-box">
+      <div class="set-row">
+        <span>新消息提醒</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#7dfcb4;box-shadow:0 0 6px #7dfcb4;"></span>
+          <span style="font-size:11px;opacity:.6;">保活运行中</span>
+        </div>
+      </div>
+      <div class="set-row" style="padding-top:2px;">
+        <span style="font-size:11px;opacity:.5;">保活 开 · 通知 关 · 横幅 2 行</span>
+        <div class="switch ${S.settings.pushEnabled?'on':''}" id="fsPushEnabled"></div>
+      </div>
+    </div>
+
+    <div class="sec-title">后台保活</div>
+    <div class="card-box">
+      <div class="set-row"><span>开启后台保活</span><div class="switch ${S.settings.keepAlive?'on':''}" id="fsKeepAlive"></div></div>
+      <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">默认已开启。切后台时持续播放近无声音频防冻结，消息即时到达；默认走静音通道，不压低你在听的其他 App 声音（上传自定义有声音频或极个别设备回落到媒体元素时才会占声道）；回前台自动补跑错过的调度。</div></div>
+    </div>
+
+    <div class="sec-title">不抢其他 App 的声音</div>
+    <div class="card-box">
+      <div class="set-row"><span>不抢其他 App 的声音</span><div class="switch ${S.settings.dontStealAudio?'on':''}" id="fsDontSteal"></div></div>
+      <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">保活音频走静音通道，不压低你在听的音乐/视频音量。</div></div>
+    </div>
+
+    <div class="sec-title">保活音频</div>
+    <div class="card-box">
+      <div class="set-row" onclick="pickKeepAliveAudio()" style="cursor:pointer;">
+        <span>保活音频</span>
+        <span class="set-val" id="fsKeepAudioVal">${S.settings.customKeepAudio ? '自定义音频' : '默认静音音频'} ›</span>
+      </div>
+      <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">点击可换成自定义音频（白噪音/助眠声，会按原音量出声）</div></div>
+    </div>
+
+    <div class="sec-title">保活测试</div>
+    <div class="card-box" style="margin-bottom:16px;">
+      <div class="set-row" style="padding:10px 15px;">
+        <button class="btn" onclick="runKeepAliveTest()" style="width:100%;height:36px;font-size:12px;border-radius:12px;">保活测试</button>
+      </div>
+      <div id="fsKeepLog" style="font-size:11px; line-height:1.8; padding:10px 15px; color:var(--dim2); background:rgba(0,0,0,0.15); border-radius:0 0 20px 20px; display:none;">
+      </div>
+    </div>
+    <div style="height:24px"></div>
+  `;
+
+  overlay.innerHTML = `<div class="fs-header"><span>后台与保活</span><button class="icon-btn" onclick="closeKeepAliveSettings()">${ICONS.close}</button></div><div class="fs-body">${bodyHtml}</div>`;
+  root.appendChild(overlay);
+
+  const pu = overlay.querySelector('#fsPushEnabled'); if (pu) pu.onclick = async function(){ await togglePushSwitch(this); };
+  const ka = overlay.querySelector('#fsKeepAlive');
+  if (ka) ka.onclick = function() {
+    this.classList.toggle('on');
+    S.settings.keepAlive = this.classList.contains('on');
+    save();
+    if(S.settings.keepAlive) enableKeepAliveNow();
+    else stopKeepAlive();
+  };
+  const ds = overlay.querySelector('#fsDontSteal');
+  if (ds) ds.onclick = function() { this.classList.toggle('on'); S.settings.dontStealAudio = this.classList.contains('on'); save(); };
+}
+function closeKeepAliveSettings(){ const el = $('#keepAliveSettingsOverlay'); if(el) el.remove(); }
+
+function pickKeepAliveAudio() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'audio/*';
+  inp.onchange = () => {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      S.settings.customKeepAudio = r.result;
+      save();
+      const el = document.getElementById('fsKeepAudioVal');
+      if (el) el.textContent = '自定义音频 ›';
+      showToast('自定义保活音频已设置，将在下一次切后台时生效');
+    };
+    r.readAsDataURL(f);
+  };
+  inp.click();
+}
+
+function runKeepAliveTest() {
+  const logEl = document.getElementById('fsKeepLog');
+  if (!logEl) return;
+  logEl.style.display = 'block';
+  const st = LibumEngine.getStatus();
+  
+  const modeText = st.audioMode === 'webaudio' ? '静音通道 (WebAudio · 不占媒体)' : st.audioMode === 'media' ? '媒体通道 (会占声道)' : '未播放';
+  const iosWarning = st.audioMode === 'media' ? '<div style="font-size:10px;opacity:0.8;margin-top:2px;">iOS 后台易被系统挂起，挂起会自动换回媒体元素</div>' : '';
+  
+  logEl.innerHTML = `
+    <div style="color:#7dfcb4;margin-bottom:4px;">● 保活状态：${st.running ? '运行中' : '已停止'}</div>
+    <div>音频：${st.running ? '播放中 · ' + modeText : '未播放'}</div>
+    ${iosWarning}
+    <div style="margin-top:4px;">后台存活：本次 ${st.survivalTime} 秒 · 最长 ${st.maxSurvival} 秒 · 最近一次 ${st.lastSurvival} 秒</div>
+    <div>锚点：连接锚点 ${st.connected ? 'connected' : 'disconnected'} · 心跳 ${st.heartbeats} 拍</div>
+    <div style="margin-top:4px;">取证：断流 ${st.disconnectCount} 次 · 后台终止 ${st.terminationCount} 次 —— 非 0 = 系统冻结/回收过页面，那段时间的后台弹窗会缺</div>
+  `;
+}
+</script><script>
 function uploadGlobalWallpaper(){
   pickImage(d => {
     S.settings.globalWallpaper = d; save(); applySettings();
@@ -1835,6 +2054,7 @@ function clearGlobalWallpaper(){
   const ov = $('#fullSettingsOverlay'); if(ov){ closeFullSettings(); openFullSettings(); } else { render(); }
   showToast('已恢复默认背景');
 }
+
 function saveGlobalSettings() {
   const overlay = $('#fullSettingsOverlay'); if(!overlay) return;
   let lMin = parseInt(overlay.querySelector('#fsLetterMin').value, 10) || 2;
@@ -1863,7 +2083,6 @@ function saveGlobalSettings() {
   const poolStr = overlay.querySelector('#fsRedPacketPool').value;
   const parsed = poolStr.split(/[,，\s]+/).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
   if (parsed.length) S.settings.redPacketPool = parsed;
-  const pushEl = overlay.querySelector('#fsPushEnabled'); if(pushEl) S.settings.pushEnabled = pushEl.classList.contains('on');
   save(); closeFullSettings(); showToast('全局设置已保存');
 }
 
@@ -1924,7 +2143,7 @@ function viewHome(){
   const u=S.user; const d=S.dialog||{a:{},b:{}}; const a=S.anniversary||{title:'纪念日',date:'',days:0};
   const pol=S.polaroidImages||['','']; const polSrc=pol[0]||''; const hasCover = !!u.cover;
   const apps=[
-    {id:'chatList',label:'聊天',icon:'chat', hasBadge: Object.values(S.unread.chats).some(n => n > 0)},
+    {id:'chatList',label:'聊天',icon:'chat', hasBadge: Object.values(S.unread.chats || {}).some(n => n > 0)},
     {id:'listen',label:'一起听',icon:'music', hasBadge: false},
     {id:'companionHome',label:'陪伴',icon:'heart', hasBadge: false},
     {id:'mail',label:'信箱',icon:'mail', hasBadge: S.unread.letters > 0}
@@ -1934,7 +2153,7 @@ function viewHome(){
   return `<div class="page"><div class="page-scroll" style="padding:10px 16px 30px"><div class="desk-grid" id="deskGrid">
     <div class="postcard ${hasCover ? 'has-cover' : ''}"><div class="postcard-bg" style="${hasCover?`background-image:url('${u.cover}')`:''}"></div><button class="postcard-cam" onclick="changeCover()">${ICONS.image}</button><div class="postcard-inner"><img class="postcard-avatar" src="${avatarSrc(u.avatar,u.name)}" onclick="changePostcardAvatar()"><div class="postcard-name" onclick="editNickname()">${esc(u.name||'我')}</div><div class="postcard-sign" onclick="editSign()">${esc(u.sign||'点击写下你的签名')}</div></div></div>
     <div class="polaroid" onclick="togglePolaroid()"><div class="polaroid-inner"><div class="polaroid-back"></div><div class="polaroid-front"><div class="polaroid-ph" style="${polSrc?`background-image:url('${polSrc}')`:''}">${polSrc?'':ICONS.image}</div></div></div></div>
-    <div class="apps-widget">${apps.map(a=>`<button class="desk-app" onclick="go('${a.id}')"><span class="desk-app-ico">${ICONS[a.icon]}${a.hasBadge ? '<span class="badge-dot show"></span>' : ''}</span><span class="desk-app-name">${a.label}</span></button>`).join('')}</div>
+    <div class="apps-widget">${apps.map(a=>`<button class="desk-app" onclick="go('${a.id}')"><span class="desk-app-ico">${ICONS[a.icon]}<span class="badge-dot ${a.hasBadge ? 'show' : ''}"></span></span><span class="desk-app-name">${a.label}</span></button>`).join('')}</div>
     <div class="anniv-widget" onclick="editAnniversary()"><div class="anniv-label">${esc(a.title||'纪念日')}</div><div class="anniv-days">${days}</div><div class="anniv-unit">天</div></div>
     <div class="dialog-widget"><div class="dlg-row"><img class="dlg-av" src="${avatarSrc(d.a.avatar||'','A')}" onclick="editDialogAvatar('a')"><div class="dlg-bubble" onclick="editDialogText('a')">${esc(d.a.text||'点击编辑')}</div></div><div class="dlg-row right"><div class="dlg-bubble" onclick="editDialogText('b')">${esc(d.b.text||'点击编辑')}</div><img class="dlg-av" src="${avatarSrc(d.b.avatar||'','B')}" onclick="editDialogAvatar('b')"></div></div>
   </div></div></div>`;
@@ -2226,13 +2445,19 @@ function sendMusicToChat(cid, song){
   if(chatCtx.id === cid && stack[stack.length-1].name === 'chatRoom') refreshChat();
   setTimeout(() => { if (Math.random() < 0.5) mjRespond(cid); }, rnd(1500, 3000));
 }
+
 function playMusicMessage(msgId){
   const cid = chatCtx.id;
   const msgs = S.chats[cid]; if(!msgs) return;
   const m = msgs.find(x => x.id === msgId); if(!m || m.type !== 'music') return;
   let song = S.songs.find(s => s.id === m.songId);
   if (!song && m.neteaseId) song = S.songs.find(s => s.type === '163' && String(s.neteaseId) === String(m.neteaseId));
+
   if (!song && m.url) {
+    if (typeof m.url === 'string' && m.url.startsWith('blob:')) {
+      showToast('该歌曲的音频文件已失效，无法播放');
+      return;
+    }
     song = {
       id: uid(), type: m.neteaseId ? '163' : 'local',
       neteaseId: m.neteaseId || '', url: m.url,
@@ -2242,7 +2467,12 @@ function playMusicMessage(msgId){
     };
     S.songs.push(song);
   }
+
   if (!song || !song.url) { showToast('这首歌暂时无法播放'); return; }
+  if (song.urlInvalid || (typeof song.url === 'string' && song.url.startsWith('blob:'))) {
+    showToast('该歌曲的音频文件已失效，无法播放');
+    return;
+  }
   S.songs.forEach(s => { s.paused = (s.id !== song.id); });
   song.paused = false;
   S.currentSong = song.id;
@@ -2879,17 +3109,10 @@ function generateMjMoment(c, now){
   };
 }
 
-/* ============================================================
- *  统一业务调度器（唯一）—— 所有原独立 setInterval 已合并至此
- *  - 频率保持与原代码等效：
- *    · 拍一拍（原15s）→ 每30s调用2次
- *    · 朋友圈互动（原60s 20%）→ 每30s 10%
- * ============================================================ */
 function checkAllTimers(){
   const now = Date.now();
   let dirty = false;
 
-  // ① 后台超时补偿（保留原逻辑）
   S.contacts.forEach(c => {
     const cs = getChatSettings(c.id);
     if (cs.autoMsgEnabled && cs.nextAutoMsgTime && now > cs.nextAutoMsgTime + 60000) {
@@ -2902,7 +3125,6 @@ function checkAllTimers(){
     }
   });
 
-  // ② 朋友圈生成
   if (S.settings.mjMoment) {
     S.contacts.forEach(c => {
       const cs = getChatSettings(c.id);
@@ -2924,7 +3146,6 @@ function checkAllTimers(){
     });
   }
 
-  // ③ 来信
   if (S.settings.nextLetterTime && now >= S.settings.nextLetterTime) {
     if (S.contacts.length) {
       const c = pickObj(S.contacts);
@@ -2940,7 +3161,6 @@ function checkAllTimers(){
     dirty = true;
   }
 
-  // ④ 自动消息
   S.contacts.forEach(c => {
     const cs = getChatSettings(c.id);
     if (!cs.autoMsgEnabled) return;
@@ -2960,7 +3180,6 @@ function checkAllTimers(){
     }
   });
 
-  // ⑤ 访客
   const vRange = visitorIntervalRange();
   if (!S.settings.nextVisitorTime) {
     S.settings.nextVisitorTime = now + rnd(vRange.minH * 3600000, vRange.maxH * 3600000);
@@ -2979,7 +3198,6 @@ function checkAllTimers(){
     dirty = true;
   }
 
-  // ⑥ 来电
   if (S.settings.callEnabled && !call && S.contacts.length) {
     const cRange = callIntervalRange();
     if (!S.settings.nextCallTime) {
@@ -2992,11 +3210,9 @@ function checkAllTimers(){
     }
   }
 
-  // ⑦ 拍一拍（原独立 15s setInterval → 现 30s tick 内调 2 次，期望等效）
   simulateOtherPat();
   simulateOtherPat();
 
-  // ⑧ 朋友圈互动（原独立 60s 20% → 现 30s 10%，等效）
   if (S.settings.mjMoment && S.contacts.length) {
     const myMoments = S.moments.filter(m => m.authorId === 'me');
     if (myMoments.length && Math.random() < 0.1) {
@@ -3025,19 +3241,18 @@ function checkAllTimers(){
   }
 
   if (dirty) {
+    save();
     const top = stack[stack.length - 1].name;
     if (top === 'chatRoom' || top === 'moments' || top === 'mail' || top === 'visitors') {
       try { render(); } catch(e) {}
     } else {
-      updateBadges();
+      try { updateBadges(); } catch(e) {}
     }
-    save();
   }
 }
 
 window.__checkTimersHook = checkAllTimers;
 
-/* ========== 统一业务调度器（唯一 tick） ========== */
 const TICK_MS = 30 * 1000;
 let __lastTick = 0;
 function safeTick(force){
@@ -3052,7 +3267,6 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) { __lastTick = 0; setTimeout(() => safeTick(true), 300); }
 });
 
-/* ========== 定时任务交接给 SW ========== */
 const TASK_HORIZON_MS = 5 * 60 * 1000;
 
 function collectUpcomingTasks(){
@@ -3106,50 +3320,72 @@ function collectUpcomingTasks(){
 function handoffToSW(){
   if (!('serviceWorker' in navigator)) return;
   const tasks = collectUpcomingTasks();
-  if (!tasks.length) return;
   navigator.serviceWorker.ready.then(reg => {
     const sw = reg.active || navigator.serviceWorker.controller;
-    if (sw) sw.postMessage({ type: 'SCHEDULE_TASKS', tasks });
+    if (!sw) return;
+    if (tasks.length) {
+      sw.postMessage({ type: 'SCHEDULE_TASKS', tasks });
+    }
+    sw.postMessage({ type: 'PING_SW' });
   }).catch(() => {});
 }
 
-async function syncBackFromSW(){
-  let tasks = null;
-  try { tasks = await idbGet('libum_scheduled_tasks'); } catch(e){ return; }
-  if (!Array.isArray(tasks) || !tasks.length) return;
-
-  const now = Date.now();
-  let changed = false;
-
-  tasks.filter(t => t.done).forEach(t => {
-    const id = t.id || '';
-    if (id.startsWith('auto_')) {
-      const cid = id.split('_')[1];
-      const cs = S.chatSettings && S.chatSettings[cid];
-      if (cs && cs.nextAutoMsgTime && cs.nextAutoMsgTime <= now) {
-        const u = cs.autoMsgUnit || 'hours';
-        const m = u === 'minutes' ? 60000 : 3600000;
-        cs.nextAutoMsgTime = now + rnd((cs.autoMsgMin || 2) * m, (cs.autoMsgMax || 6) * m);
-        changed = true;
+async function syncBackFromSW() {
+  try {
+    const raw = await idbGet('libum_data');
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d && d.state) {
+        const state = unpackAssets(d.state, d.assets);
+        if (state) {
+          S = deepMerge(clone(DEFAULT_STATE), state);
+          normalizeState();
+          lastScrollKey = '';
+          applySettings();
+          const cur = stack[stack.length - 1];
+          if (cur.name === 'chatRoom') {
+            try { refreshChat(); } catch (e) {}
+            updateBadges();
+          } else {
+            render();
+          }
+        }
       }
     }
-    if (id.startsWith('moment_')) {
-      const cid = id.split('_')[1];
-      const cs = S.chatSettings && S.chatSettings[cid];
-      if (cs && cs.nextMomentTime && cs.nextMomentTime <= now) {
-        cs.nextMomentTime = now + rnd((cs.momentMinHours || 4) * 3600000, (cs.momentMaxHours || 12) * 3600000);
-        changed = true;
+  } catch (e) { console.warn('syncBackFromSW 拉数据失败', e); }
+
+  try {
+    const rawQ = await idbGet('libum_queue');
+    if (rawQ) {
+      const q = typeof rawQ === 'string' ? JSON.parse(rawQ) : rawQ;
+      if (Array.isArray(q) && q.length) {
+        let touched = false;
+        q.forEach(item => {
+          if (!item || !item.cid || !item.t) return;
+          if (!S.chats[item.cid]) S.chats[item.cid] = [];
+          S.chats[item.cid].push({
+            id: uid(),
+            from: 'mj',
+            type: 'text',
+            text: item.t,
+            time: item.ts || Date.now()
+          });
+          if (!S.unread.chats[item.cid]) S.unread.chats[item.cid] = 0;
+          S.unread.chats[item.cid]++;
+          touched = true;
+        });
+        if (touched) save(true);
+      }
+      if (idbDB) {
+        try {
+          const tx = idbDB.transaction('kv', 'readwrite');
+          tx.objectStore('kv').delete('libum_queue');
+        } catch (e) {}
       }
     }
-    if (id.startsWith('letter_') && S.settings.nextLetterTime && S.settings.nextLetterTime <= now) {
-      S.settings.nextLetterTime = now + rnd((S.settings.letterMinHours || 2) * 3600000, (S.settings.letterMaxHours || 6) * 3600000);
-      changed = true;
-    }
-  });
+  } catch (e) { console.warn('syncBackFromSW 消费队列失败', e); }
 
-  try { await idbSet('libum_scheduled_tasks', []); } catch(e){}
-  if (changed) save(true);
-  try { const sw = navigator.serviceWorker.controller; if (sw) sw.postMessage({ type: 'PING_SW' }); } catch(e){}
+  try { await idbSet('libum_scheduled_tasks', []); } catch (e) {}
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -3485,16 +3721,36 @@ function renderSongList(){
   }
   return list.map(s => {
     const coverImg = s.cover || 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="rgba(255,255,255,0.1)"/><path d="M12 20 L28 20 L28 12 L12 12 Z" fill="rgba(255,255,255,0.3)"/></svg>');
-    return `<div class="song-item ${S.currentSong===s.id?'active':''}" onclick="playSong('${s.id}')">
+    const isInvalid = !!s.urlInvalid;
+    return `<div class="song-item ${S.currentSong===s.id?'active':''}" ${isInvalid ? '' : `onclick="playSong('${s.id}')"`}>
       <img class="song-cover" src="${coverImg}">
       <div class="song-info">
-        <div class="song-name">${esc(s.name || s.title || '未命名')}</div>
-        <div class="song-artist">${esc(s.artist || '未知歌手')}</div>
+        <div class="song-name" style="${isInvalid?'opacity:.55;':''}">${esc(s.name || s.title || '未命名')}${isInvalid ? ' ⚠️' : ''}</div>
+        <div class="song-artist" style="${isInvalid?'color:#ffb04a;':''}">${isInvalid ? '音频文件已失效，需重新选择' : esc(s.artist || '未知歌手')}</div>
       </div>
-      <button class="song-like-btn ${s.liked?'liked':''}" onclick="event.stopPropagation();toggleSongLike('${s.id}')" title="${s.liked?'取消收藏':'收藏'}">${s.liked ? ICONS.heartFill : ICONS.heart}</button>
-      <button class="song-delete" onclick="event.stopPropagation();removeSong('${s.id}')">${ICONS.close}</button>
+      ${isInvalid
+        ? `<button class="song-delete" style="color:#ffb04a;background:rgba(255,176,74,.18);width:auto;padding:0 10px;border-radius:10px;" onclick="event.stopPropagation();reimportSong('${s.id}')">重选</button>`
+        : `<button class="song-like-btn ${s.liked?'liked':''}" onclick="event.stopPropagation();toggleSongLike('${s.id}')" title="${s.liked?'取消收藏':'收藏'}">${s.liked ? ICONS.heartFill : ICONS.heart}</button>
+           <button class="song-delete" onclick="event.stopPropagation();removeSong('${s.id}')">${ICONS.close}</button>`}
     </div>`;
   }).join('');
+}
+
+function reimportSong(id){
+  const s = S.songs.find(x => x.id === id);
+  if (!s) return;
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'audio/*';
+  inp.onchange = () => {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    s.url = URL.createObjectURL(f);
+    s.urlInvalid = false;
+    if (!s.name || s.name === '未命名') s.name = f.name.replace(/\.[^.]+$/, '');
+    if (!s.artist) s.artist = '本地文件';
+    save(); render();
+    showToast('已重新关联音频文件');
+  };
+  inp.click();
 }
 
 function switchSongTab(tab){
@@ -3648,6 +3904,7 @@ function updateListenUI(){
     if(sp) sp.innerHTML = (song.id === S.currentSong && !song.paused) ? ICONS.pause : ICONS.play;
   });
 }
+
 function bindListen(){
   const searchBtn = $('#searchBtn');
   if (searchBtn) searchBtn.onclick = searchNetease;
@@ -3664,19 +3921,36 @@ function bindListen(){
 
   const cur = S.songs.find(s => s.id === S.currentSong);
   if (cur && cur.url) {
-    if (!audio || audioSongId !== cur.id) {
-      if (audio) { try { audio.pause(); } catch(e){} }
-      audio = new Audio(cur.url);
-      audioSongId = cur.id;
-      audio.preload = 'auto';
-      audio.onended = handleAudioEnded;
-      audio.onerror = () => { showToast('这首歌暂时无法播放（可能已下架或需要会员）'); };
+    if (cur.urlInvalid || (typeof cur.url === 'string' && cur.url.startsWith('blob:'))) {
+      if (audio) { try { audio.pause(); } catch(e){} audio = null; audioSongId = null; }
+      showToast('该歌曲的音频文件已失效，请重新导入');
     } else {
-      audio.onended = handleAudioEnded;
+      if (!audio || audioSongId !== cur.id) {
+        if (audio) { try { audio.pause(); } catch(e){} }
+        audio = new Audio(cur.url);
+        audioSongId = cur.id;
+        audio.preload = 'auto';
+        audio.onended = handleAudioEnded;
+        audio.onerror = () => {
+          const badSong = S.songs.find(s => s.id === audioSongId);
+          if (badSong && typeof badSong.url === 'string' && badSong.url.startsWith('blob:')) {
+            badSong.urlInvalid = true;
+            save();
+            showToast('本地音频文件已失效，请点击「重选」重新导入');
+            if (stack[stack.length-1].name === 'listen') render();
+          } else {
+            showToast('这首歌暂时无法播放（可能已下架或需要会员）');
+          }
+        };
+      } else {
+        audio.onended = handleAudioEnded;
+      }
+      if (cur.paused) { if (!audio.paused) audio.pause(); }
+      else { const p = audio.play(); if (p && p.catch) p.catch(() => {}); }
     }
-    if (cur.paused) { if (!audio.paused) audio.pause(); }
-    else { const p = audio.play(); if (p && p.catch) p.catch(() => {}); }
-  } else if (audio) { try { audio.pause(); } catch(e){} audio = null; audioSongId = null; }
+  } else if (audio) {
+    try { audio.pause(); } catch(e){} audio = null; audioSongId = null;
+  }
   if (audioTimer) { clearInterval(audioTimer); audioTimer = null; }
   if (audio) { audioTimer = setInterval(updateProgressUI, 400); }
   updateProgressUI();
@@ -3688,11 +3962,19 @@ function updateProgressUI(){
   if (audio && audio.duration && isFinite(audio.duration)) { const p = Math.max(0, Math.min(1, audio.currentTime / audio.duration)); fill.style.width = (p * 100) + '%'; if (curEl) curEl.textContent = fmtTime(audio.currentTime); if (totEl) totEl.textContent = fmtTime(audio.duration); }
   else { fill.style.width = '0%'; if (curEl) curEl.textContent = '00:00'; if (totEl) totEl.textContent = '00:00'; }
 }
+
 function togglePlay() {
   if (!S.songs.length) { showToast('请先添加歌曲'); return; }
   let cur = S.songs.find(s => s.id === S.currentSong);
   if (!cur) { S.songs.forEach(s => s.paused = true); cur = S.songs[0]; cur.paused = false; S.currentSong = cur.id; }
-  else { if (!cur.url) { showToast('这首歌没有可播放的链接'); return; } cur.paused = !cur.paused; }
+  else {
+    if (!cur.url) { showToast('这首歌没有可播放的链接'); return; }
+    if (cur.urlInvalid || (typeof cur.url === 'string' && cur.url.startsWith('blob:'))) {
+      showToast('该歌曲的音频文件已失效，请重新导入');
+      return;
+    }
+    cur.paused = !cur.paused;
+  }
   save(); render();
 }
 function playIndex(i) { 
@@ -3707,9 +3989,14 @@ function playIndex(i) {
 }
 function prevSong() { if (!S.songs.length) { showToast('播放列表为空'); return; } let i = S.songs.findIndex(s => s.id === S.currentSong); if (i < 0) i = 0; i = (i - 1 + S.songs.length) % S.songs.length; playIndex(i); }
 function nextSong() { if (!S.songs.length) { showToast('播放列表为空'); return; } let i = S.songs.findIndex(s => s.id === S.currentSong); i = (i + 1) % S.songs.length; playIndex(i); }
+
 function playSong(id){ 
   const cur = S.songs.find(s => s.id === id); 
   if (!cur) return; 
+  if (cur.urlInvalid || (typeof cur.url === 'string' && cur.url.startsWith('blob:'))) {
+    showToast('该歌曲的音频文件已失效，请点击「重选」重新导入');
+    return;
+  }
   S.songs.forEach(s => { s.paused = (s.id !== id); }); 
   cur.paused = false; 
   S.currentSong = id; 
@@ -3935,25 +4222,25 @@ function viewProfile(){
       </div>
       <div class="sec-title">朋友圈内容</div>
       <div class="card-box">
-        <div class="set-row"><span>多字卡拼接发布</span><div class="switch ${st.mjMomentCombine?'on':''}" onclick="st.mjMomentCombine=!st.mjMomentCombine;save();render();"></div></div>
+        <div class="set-row"><span>多字卡拼接发布</span><div class="switch ${st.mjMomentCombine?'on':''}" onclick="S.settings.mjMomentCombine=!S.settings.mjMomentCombine;save();render();"></div></div>
         <div class="set-row" style="flex-direction:column;align-items:flex-start;gap:8px;background:rgba(0,0,0,.05);">
           <span style="font-size:12px;opacity:.8;">拼接字数范围</span>
           <div style="display:flex;align-items:center;gap:8px;width:100%;">
-            <input class="field-input" type="number" min="1" value="${st.mjMomentCombineMin||2}" onchange="st.mjMomentCombineMin=Math.max(1,+this.value||2); if(st.mjMomentCombineMax < st.mjMomentCombineMin) st.mjMomentCombineMax = st.mjMomentCombineMin; save(); render();" style="width:60px;height:34px;margin-bottom:0;text-align:center;padding:0 4px">
+            <input class="field-input" type="number" min="1" value="${st.mjMomentCombineMin||2}" onchange="S.settings.mjMomentCombineMin=Math.max(1,+this.value||2); if(S.settings.mjMomentCombineMax < S.settings.mjMomentCombineMin) S.settings.mjMomentCombineMax = S.settings.mjMomentCombineMin; save(); render();" style="width:60px;height:34px;margin-bottom:0;text-align:center;padding:0 4px">
             <span style="opacity:.55">~</span>
-            <input class="field-input" type="number" min="${st.mjMomentCombineMin||2}" value="${st.mjMomentCombineMax||3}" onchange="st.mjMomentCombineMax=Math.max(st.mjMomentCombineMin||2, +this.value||3); save(); render();" style="width:60px;height:34px;margin-bottom:0;text-align:center;padding:0 4px">
+            <input class="field-input" type="number" min="${st.mjMomentCombineMin||2}" value="${st.mjMomentCombineMax||3}" onchange="S.settings.mjMomentCombineMax=Math.max(S.settings.mjMomentCombineMin||2, +this.value||3); save(); render();" style="width:60px;height:34px;margin-bottom:0;text-align:center;padding:0 4px">
           </div>
         </div>
-        <div class="set-row"><span>多字卡回复评论</span><div class="switch ${st.mjMomentMultiReply?'on':''}" onclick="st.mjMomentMultiReply=!st.mjMomentMultiReply;save();render();"></div></div>
+        <div class="set-row"><span>多字卡回复评论</span><div class="switch ${st.mjMomentMultiReply?'on':''}" onclick="S.settings.mjMomentMultiReply=!S.settings.mjMomentMultiReply;save();render();"></div></div>
         <div class="set-row" style="flex-direction:column;align-items:flex-start;gap:8px;background:rgba(0,0,0,.05);">
           <span style="font-size:12px;opacity:.8;">回复字数范围</span>
           <div style="display:flex;align-items:center;gap:8px;width:100%;">
-            <input class="field-input" type="number" min="1" value="${st.mjMomentReplyMin||1}" onchange="st.mjMomentReplyMin=Math.max(1,+this.value||1); if(st.mjMomentReplyMax < st.mjMomentReplyMin) st.mjMomentReplyMax = st.mjMomentReplyMin; save(); render();" style="width:60px;height:34px;margin-bottom:0;text-align:center;padding:0 4px">
+            <input class="field-input" type="number" min="1" value="${st.mjMomentReplyMin||1}" onchange="S.settings.mjMomentReplyMin=Math.max(1,+this.value||1); if(S.settings.mjMomentReplyMax < S.settings.mjMomentReplyMin) S.settings.mjMomentReplyMax = S.settings.mjMomentReplyMin; save(); render();" style="width:60px;height:34px;margin-bottom:0;text-align:center;padding:0 4px">
             <span style="opacity:.55">~</span>
-            <input class="field-input" type="number" min="${st.mjMomentReplyMin||1}" value="${st.mjMomentReplyMax||2}" onchange="st.mjMomentReplyMax=Math.max(st.mjMomentReplyMin||1, +this.value||2); save(); render();" style="width:60px;height:34px;margin-bottom:0;text-align:center;padding:0 4px">
+            <input class="field-input" type="number" min="${st.mjMomentReplyMin||1}" value="${st.mjMomentReplyMax||2}" onchange="S.settings.mjMomentReplyMax=Math.max(S.settings.mjMomentReplyMin||1, +this.value||2); save(); render();" style="width:60px;height:34px;margin-bottom:0;text-align:center;padding:0 4px">
           </div>
         </div>
-        <div class="set-row"><span>带表情包发朋友圈</span><div class="switch ${st.mjMomentWithSticker?'on':''}" onclick="st.mjMomentWithSticker=!st.mjMomentWithSticker;save();render();"></div></div>
+        <div class="set-row"><span>带表情包发朋友圈</span><div class="switch ${st.mjMomentWithSticker?'on':''}" onclick="S.settings.mjMomentWithSticker=!S.settings.mjMomentWithSticker;save();render();"></div></div>
         <div class="set-row" style="padding:10px 15px;background:rgba(0,0,0,.05);"><div style="font-size:11px;opacity:.55;line-height:1.6;">控制对方发朋友圈和评论时是否使用多条字卡拼接，以及是否附带表情包图片。关闭后对应内容会以单条字卡形式发送。</div></div>
       </div>
       <div class="sec-title">来电</div>
@@ -3976,14 +4263,16 @@ function viewProfile(){
       <div class="sec-title">朋友圈访客</div>
       <div class="card-box"><div class="set-row" onclick="openVisitorSettingsModal()" style="cursor:pointer;"><span>访客频率</span><span class="set-val">${S.settings.visitorRate==null?50:S.settings.visitorRate}% · ${fmtHourRange(visitorIntervalRange())} ›</span></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">访客到来时约 45% 概率留下字卡留言，可在「访客」页面查看。</div></div></div>
       <div class="sec-title">红包设置</div>
-      <div class="card-box"><div class="set-row"><span>使用随机金额</span><div class="switch ${st.useRandomAmount?'on':''}" onclick="st.useRandomAmount=!st.useRandomAmount;save();render();"></div></div><div class="set-row" onclick="openRedPacketPoolModal()" style="cursor:pointer;"><span>金额池设置</span><span class="set-val">${(st.redPacketPool||[]).length} 项 ›</span></div></div>
+      <div class="card-box"><div class="set-row"><span>使用随机金额</span><div class="switch ${st.useRandomAmount?'on':''}" onclick="S.settings.useRandomAmount=!S.settings.useRandomAmount;save();render();"></div></div><div class="set-row" onclick="openRedPacketPoolModal()" style="cursor:pointer;"><span>金额池设置</span><span class="set-val">${(st.redPacketPool||[]).length} 项 ›</span></div></div>
+      
       <div class="sec-title">后台与推送</div>
       <div class="card-box">
         <div class="set-row"><span>后台保活</span><div class="switch ${st.keepAlive?'on':''}" id="profileKeepAlive"></div></div>
         <div class="set-row"><span>系统通知推送</span><div class="switch ${st.pushEnabled?'on':''}" onclick="togglePushSwitch(this)"></div></div>
         <div class="set-row" onclick="testPush()" style="cursor:pointer;"><span>测试推送</span><span class="set-val">发送测试通知 ›</span></div>
-        <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.65;">💡 开启后台保活 + 系统通知后，应用切到后台会尽力保持连接（Worker 心跳 + 静音音频 + Wake Lock + MediaSession + SW 定时任务交接）。<br>桌面 Chrome/Edge 效果最好；Android 部分有效；<b>iOS 因系统限制，效果有限</b>。<br>切回前台会立即补发所有过期消息。</div></div>
+        <div class="set-row" onclick="openKeepAliveSettings()" style="cursor:pointer;"><span>更多保活设置</span><span class="set-val">音频通道 / 测试日志 ›</span></div>
       </div>
+
       <div class="sec-title">应用安装</div>
       <div class="card-box"><div class="set-row" onclick="installPWA()" style="cursor:pointer;"><span>添加到桌面</span><span class="set-val">${deferredInstallPrompt ? '可立即安装 ›' : '查看安装方法 ›'}</span></div><div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">Edge / Chrome 需通过 https 或 localhost 访问才能安装为应用。<br>卸载时<b>务必取消勾选「删除数据」</b>，否则本机数据会被连带清空。</div></div></div>
       <div class="sec-title">意见反馈</div>
@@ -4946,7 +5235,7 @@ async function initStorage(){
     const urlParams = new URLSearchParams(location.search);
     const pageParam = urlParams.get('page');
     const idParam = urlParams.get('id');
-    if (pageParam && window.VIEWS[pageParam]) {
+    if (pageParam && VIEWS[pageParam]) {
       setTimeout(() => { 
         if (idParam) go(pageParam, { id: idParam });
         else go(pageParam); 
@@ -5000,8 +5289,8 @@ function autoStartKeepAlive() {
   if (S.settings.keepAlive) {
     LibumEngine.startKeepAlive();
   }
-  document.removeEventListener('pointerdown', autoStartKeepAlive);
-  document.removeEventListener('click', autoStartKeepAlive);
+  document.removeEventListener('pointerdown', autoStartKeepAlive, true);
+  document.removeEventListener('click', autoStartKeepAlive, true);
 }
 document.addEventListener('pointerdown', autoStartKeepAlive, { capture: true });
 document.addEventListener('click', autoStartKeepAlive, { capture: true });
@@ -5020,4 +5309,4 @@ function stopKeepAlive(){
 window.addEventListener('beforeunload', () => { try{ save(true); }catch(e){} });
 </script>
 </body>
-</html> 
+</html>
