@@ -16,19 +16,27 @@
  *   libum_scheduled_tasks   ← SW 待执行任务数组
  *   libum_queue             ← 已触发但页面未读的消息队列
  *   libum_notif_fallback    ← showNotification 失败时的兜底
+ *
+ * 关键修复（v3）：
+ *   - pingRecover：补发所有过期任务，不再限制 5 分钟窗口
+ *   - armOne：过期任务统一交给 pingRecover / drainOverdueTasks，不再自行丢弃
+ *   - NOTIF_ICON 默认用内联 SVG，避免首次 showNotification 因图标缺失失败
+ *   - fireTask 写队列时携带 task.id，供页面端 syncBackFromSW 去重
  * ========================================================================== */
 
 const DB_NAME        = 'libum_store';
 const DB_VERSION     = 1;
 const STORE_NAME     = 'kv';
 const STATIC_CACHE   = 'libum-static-v2';
-const NOTIF_ICON     = './icon-192.png';
+
 const FALLBACK_ICON  = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96">' +
   '<rect width="96" height="96" rx="20" fill="#a58cf0"/>' +
   '<text x="48" y="62" font-size="42" fill="#fff" text-anchor="middle" ' +
   'font-family="sans-serif" font-weight="bold">L</text></svg>'
 );
+// 默认直接用内联 SVG，避免 icon-192.png 不存在时首次 showNotification 失败
+const NOTIF_ICON     = FALLBACK_ICON;
 
 const HORIZON_MS     = 2 * 3600 * 1000;   // 只接受 2 小时内的任务
 const ARM_WINDOW_MS  = 5 * 60 * 1000;     // 5 分钟内会到期的，本次 waitUntil 内 armOne 并等待
@@ -211,7 +219,7 @@ async function showLibumNotification(title, body, tag, data) {
     await self.registration.showNotification(title || 'Libum', opts);
     return true;
   } catch (e) {
-    // 图标失效 / 权限异常时用内联 SVG 重试
+    // 图标失效 / 权限异常时用内联 SVG 再试一次
     try {
       opts.icon  = FALLBACK_ICON;
       opts.badge = FALLBACK_ICON;
@@ -271,7 +279,8 @@ async function fireTask(task) {
 
     /* 2) 按类型处理数据回写 */
     if (d.type === 'AUTO_MSG' && d.cid) {
-      /* 聊天消息：写入队列供页面回前台补进聊天，并推进 nextAutoMsgTime */
+      /* 聊天消息：写入队列供页面回前台补进聊天，并推进 nextAutoMsgTime
+         注意 id 必须用 task.id，页面 syncBackFromSW 会用它去重，避免重复消费 */
       await pushQueue({
         id: task.id,
         cid: d.cid,
@@ -315,14 +324,15 @@ async function fireTask(task) {
 /* ---------------- 把一个任务挂进当前事件的 waitUntil ----------------
  * 只挂"ARM_WINDOW_MS 内会到期"的任务，避免 waitUntil 无限期等待。
  * 远期任务靠下一次 handoff / PING_SW / periodicSync 再次唤醒。
+ * 【修复】过期任务不再由 armOne 处理，统一交给 pingRecover / drainOverdueTasks 补发。
  * ------------------------------------------------------------------ */
 function armOne(task) {
   if (!task || !task.id) return null;
   if (task.done) return null;
   if (__inflightTimers.has(task.id)) return null;      // 已挂起，别重复
   const delay = task.fireAt - Date.now();
-  if (delay > ARM_WINDOW_MS) return null;               // 超 5 分钟，本次不排
-  if (delay < -60 * 1000) return null;                  // 超 1 分钟未触发，视为过期丢弃
+  if (delay > ARM_WINDOW_MS) return null;              // 超 5 分钟，本次不排
+  if (delay < 0) return null;                          // 过期任务不在这里处理，交给补发路径
 
   return new Promise(resolve => {
     __inflightLocks.set(task.id, resolve);
@@ -379,19 +389,24 @@ async function handleSchedule(incoming) {
   if (promises.length) await Promise.all(promises);
 }
 
-/* ---------------- PING_SW 时的恢复（补偿 SW 内存被系统回收） ---------------- */
+/* ---------------- PING_SW 时的恢复（补偿 SW 内存被系统回收） ----------------
+ * 【关键修复】之前只补发 ARM_WINDOW_MS（5 分钟）内过期的任务，
+ * 导致后台超过 5 分钟后 SW 唤醒时，过期任务被丢弃 → 通知彻底丢失。
+ * 现在改为：所有已过期未 done 的任务一律补发（不管过期多久）。
+ * ------------------------------------------------------------------------ */
 async function pingRecover() {
   const tasks = await loadTasks();
   const now = Date.now();
   const promises = [];
 
-  /* 顺便补发一次已过期但没 done 的任务（容错） */
   for (const t of tasks) {
     if (t.done) continue;
-    if (t.fireAt <= now && t.fireAt > now - ARM_WINDOW_MS) {
+    if (t.fireAt <= now) {
+      // 过期任务：立即补发（哪怕晚了，通知也比没有好）
       fireTask(t).catch(() => {});
       continue;
     }
+    // 未来任务正常 arm（只有 5 分钟内的才会真正挂 waitUntil）
     const p = armOne(t);
     if (p) promises.push(p);
   }
@@ -451,7 +466,9 @@ self.addEventListener('notificationclick', (event) => {
   })());
 });
 
-/* ---------------- periodicSync / sync 兜底（Chrome Android 等） ---------------- */
+/* ---------------- periodicSync / sync 兜底（Chrome Android 等） ----------------
+ * 同样补发所有过期任务，不再限制窗口
+ * ------------------------------------------------------------------------------ */
 async function drainOverdueTasks() {
   const tasks = await loadTasks();
   const now = Date.now();
@@ -508,6 +525,8 @@ self.addEventListener('activate', (event) => {
       });
       if (kept.length !== tasks.length) await saveTasks(kept);
     } catch (e) {}
+    /* activate 后立即补发一次过期任务（覆盖"关闭再打开"场景） */
+    try { await pingRecover(); } catch (e) {}
   })());
 });
 

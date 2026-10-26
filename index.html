@@ -206,9 +206,39 @@ html.app-hidden .watch-active-glow { animation-play-state: paused !important; }
 .msg-avatar-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:none;}
 .msg-row.me .msg-avatar-col{order:2;}
 .msg-time{font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.02em;white-space:nowrap;text-shadow:0 1px 4px rgba(40,25,80,.25);}
-.bubble{width: fit-content;max-width:100%;padding:10px 14px;font-size:calc(14px * var(--fs));line-height:1.5;border-radius:18px;word-break:normal;overflow-wrap:break-word;background:rgba(255,255,255,.22);backdrop-filter:blur(var(--blur)) saturate(170%);-webkit-backdrop-filter:blur(var(--blur)) saturate(170%);border:1px solid rgba(255,255,255,.3);box-shadow:0 4px 16px rgba(50,35,100,.1);animation:pop .26s cubic-bezier(.2,1.2,.4,1);position:relative;-webkit-touch-callout:none;}
+.bubble{width: fit-content;max-width:100%;padding:10px 14px;font-size:calc(14px * var(--fs));line-height:1.5;border-radius:18px;word-break:normal;overflow-wrap:break-word;background:rgba(255,255,255,.22);backdrop-filter:blur(var(--blur)) saturate(170%);-webkit-backdrop-filter:blur(var(--blur)) saturate(170%);border:1px solid rgba(255,255,255,.3);box-shadow:0 4px 16px rgba(50,35,100,.1);position:relative;-webkit-touch-callout:none;}
 .msg-row.me .bubble{background:rgba(255,255,255,.42);border-color:rgba(255,255,255,.55);}
-@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
+
+/* iMessage 风格进入动画：仅对新消息使用 */
+@keyframes msgInMe {
+  0%   { opacity: 0; transform: translateY(26px) scale(0.68); }
+  55%  { opacity: 1; transform: translateY(-3px) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes msgInMj {
+  0%   { opacity: 0; transform: translateX(-24px) scale(0.82); }
+  55%  { opacity: 1; transform: translateX(3px) scale(1.01); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes sysMsgIn {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.msg-row.msg-anim-me {
+  animation: msgInMe 0.42s cubic-bezier(0.32, 1.4, 0.5, 1) both;
+  transform-origin: right bottom;
+  will-change: transform, opacity;
+}
+.msg-row.msg-anim-mj {
+  animation: msgInMj 0.42s cubic-bezier(0.32, 1.4, 0.5, 1) both;
+  transform-origin: left bottom;
+  will-change: transform, opacity;
+}
+.sys-msg.msg-anim-me,
+.sys-msg.msg-anim-mj {
+  animation: sysMsgIn 0.35s ease both;
+}
+
 .sys-msg{text-align:center;font-size:11px;color:rgba(255,255,255,.75);padding:2px 0;letter-spacing:.02em;}
 .chat-inputbar{flex:none;display:flex;align-items:center;gap:9px;padding:9px 12px calc(9px + env(safe-area-inset-bottom,0px));position:relative;}
 .chat-input{flex:1;display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:0 6px;height:40px;}
@@ -241,7 +271,7 @@ html.app-hidden .watch-active-glow { animation-play-state: paused !important; }
 .plus-item svg{width:22px;height:22px;}
 .plus-item:active .pi-ico{background:rgba(255,255,255,.34);}
 
-.quiz-card{width:100%;padding:13px 15px;border-radius:18px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.34);backdrop-filter:blur(var(--blur)) saturate(170%);-webkit-backdrop-filter:blur(var(--blur)) saturate(170%);animation:pop .26s cubic-bezier(.2,1.2,.4,1);word-break:break-word;overflow-wrap:anywhere;}
+.quiz-card{width:100%;padding:13px 15px;border-radius:18px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.34);backdrop-filter:blur(var(--blur)) saturate(170%);-webkit-backdrop-filter:blur(var(--blur)) saturate(170%);word-break:break-word;overflow-wrap:anywhere;}
 .quiz-label{font-size:10px;letter-spacing:.16em;color:rgba(255,255,255,.6);margin-bottom:6px;}
 .quiz-q{font-size:14px;font-weight:600;margin-bottom:10px;word-break:break-word;overflow-wrap:anywhere;}
 .quiz-opt{font-size:13px;padding:8px 12px;border-radius:12px;margin-top:6px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.26);transition:background .18s;word-break:break-word;overflow-wrap:anywhere;white-space:normal;line-height:1.5;}
@@ -437,8 +467,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;heigh
 .ncm-login-btn { padding: 5px 12px; border-radius: 10px; font-size: 11px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.28); color: rgba(255,255,255,.85); transition: all .2s; white-space: nowrap; }
 .ncm-login-btn:active { transform: scale(.95); background: rgba(255,255,255,.28); }
 
-.update-log-item { display:flex;gap:8px;margin-bottom:8px;padding:10px 12px;background:rgba(255,255,255,.08);border-radius:12px;border:1px solid rgba(255,255,255,.12);}
-
 html.kb-open .chat-inputbar{ padding-bottom: 9px !important; }
 html.kb-open .tabbar{ padding-bottom: 8px !important; }
 
@@ -589,7 +617,7 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
 .watch-chat { flex:1;overflow-y:auto;padding:8px 14px 12px;display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.15); }
 .watch-chat::-webkit-scrollbar { width:0; }
 .watch-msg { align-items:flex-end; }
-.watch-bubble { max-width:70%;padding:8px 13px;font-size:13px;line-height:1.5;border-radius:14px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);color:#fff;word-break:break-word;animation:pop .2s cubic-bezier(.2,1.2,.4,1); }
+.watch-bubble { max-width:70%;padding:8px 13px;font-size:13px;line-height:1.5;border-radius:14px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);color:#fff;word-break:break-word; }
 .watch-bubble.me { background:rgba(226,154,216,.5);border-color:rgba(255,255,255,.35); }
 
 .watch-inputbar { flex:none;display:flex;align-items:center;gap:9px;padding:9px 12px calc(9px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.25); }
@@ -719,6 +747,7 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       lastHiddenAt = Date.now();
+      try { if (typeof save === 'function') save(true); } catch(e) {}
       if (isKeepEnabled) startSilentAudio();
       document.documentElement.classList.add('app-hidden');
     } else {
@@ -743,19 +772,62 @@ html.kb-open .tabbar{ padding-bottom: 8px !important; }
   });
 
   async function fireNotification(title, body, tag, data) {
-    if (!isPushEnabled || !('Notification' in window) || Notification.permission !== 'granted') return;
-    const payload = { body, icon: SAFE_ICON, badge: SAFE_ICON, tag: tag || 'libum-msg-' + Date.now(), renotify: true, vibrate: [80, 40, 80], data: data || {}, requireInteraction: true };
+    if (!isPushEnabled) return;
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'denied') return;
+    if (Notification.permission !== 'granted') return;
+
+    const payload = {
+      body: body || '',
+      icon: SAFE_ICON,
+      badge: SAFE_ICON,
+      tag: tag || ('libum-msg-' + Date.now()),
+      renotify: true,
+      vibrate: [80, 40, 80],
+      data: data || {},
+      requireInteraction: true
+    };
+
+    // 优先走 SW（Android Chrome 必须）
     if ('serviceWorker' in navigator) {
       try {
-        const reg = await navigator.serviceWorker.ready;
-        if (reg && reg.active) { await reg.showNotification(title, payload); return; }
+        const reg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise(resolve => setTimeout(() => resolve(null), 1500))
+        ]);
+        if (reg && reg.active) {
+          await reg.showNotification(title, payload);
+          return;
+        }
       } catch (e) {}
     }
+
+    // Fallback：直连 Notification（桌面 / 部分 iOS PWA）
     try {
       const n = new Notification(title, payload);
-      n.onclick = () => { try { window.focus(); } catch(e){} n.close(); if (data && data.cid && window.go) window.go('chatRoom', { id: data.cid }); };
+      n.onclick = () => {
+        try { window.focus(); } catch(e){}
+        n.close();
+        if (data && data.cid && window.go) window.go('chatRoom', { id: data.cid });
+      };
       setTimeout(() => { try { n.close(); } catch(e){} }, 8000);
-    } catch (e) {}
+    } catch (e) {
+      // 彻底失败：写回 IDB 让 SW 下次唤醒时补发
+      try {
+        if (window.indexedDB) {
+          const req = indexedDB.open('libum_store', 1);
+          req.onsuccess = () => {
+            try {
+              const db = req.result;
+              const tx = db.transaction('kv', 'readwrite');
+              tx.objectStore('kv').put({
+                title, body, tag, data, ts: Date.now()
+              }, 'libum_notif_fallback');
+            } catch(e) {}
+          };
+        }
+      } catch (e) {}
+    }
   }
 
   function showHeadsUp(avatar, title, text, onClick) {
@@ -900,18 +972,6 @@ const rnd=(a,b)=>a+Math.random()*(b-a);
 const fmtTime=s=>{s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
 
 const APP_VERSION = '2.2.0';
-const UPDATE_LOG = {
-  '2.2.0': {
-    date: '2026-10-18',
-    items: [
-      '📝 问卷支持自定义对方回复时间（秒），按联系人独立保存',
-      '🗑️ 新增「按日期清空聊天记录」功能，仅删除聊天消息，其他数据不受影响',
-      '📅 支持「该日期之前 / 仅该日期 / 该日期之后」三种清除范围',
-      '🎯 全局与单聊均可使用，删除前会显示将删除的消息条数',
-      '🎉 公告每次打开都会展示，新老用户都能看到本次更新内容'
-    ]
-  }
-};
 
 const WEB3FORMS_KEY = '5a7d31e8-6d89-4908-bb95-852b9e8bbc0d';
 const NOTIF_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="20" fill="#a58cf0"/><text x="48" y="62" font-size="42" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="bold">L</text></svg>');
@@ -1268,7 +1328,10 @@ function save(immediate){
   saveTimer = setTimeout(() => { saveTimer = null; doSave(); }, 800);
 }
 
-window.addEventListener('pagehide', () => { save(true); });
+window.addEventListener('pagehide', () => {
+  try { save(true); } catch(e) {}
+  try { handoffToSW(); } catch(e) {}
+});
 
 function requestPersistentStorage(){
   try{
@@ -1448,43 +1511,6 @@ function importData(){
     r.readAsText(f);
   };
   inp.click();
-}
-
-function checkUpdateNotice(){
-  try {
-    const sessionKey = 'libum_notice_shown_' + APP_VERSION;
-    if (sessionStorage.getItem(sessionKey) === '1') return;
-    sessionStorage.setItem(sessionKey, '1');
-    setTimeout(() => showUpdateNotice(APP_VERSION), 1200);
-  } catch(e){}
-}
-function showUpdateNotice(version){
-  const log = UPDATE_LOG[version];
-  if (!log) { try{ localStorage.setItem('libum_seen_version', version); }catch(e){} return; }
-  const m = openModal(`
-    <div class="modal-title" style="display:flex;align-items:center;justify-content:center;gap:8px;">
-      <span>🎉</span><span>更新公告</span>
-    </div>
-    <div style="text-align:center;font-size:11.5px;opacity:.6;margin-bottom:14px;letter-spacing:.08em;">
-      v${version} · ${log.date}
-    </div>
-    <div style="font-size:13px;line-height:1.75;padding:0 2px;max-height:52vh;overflow-y:auto;">
-      ${log.items.map(item => `
-        <div class="update-log-item">
-          <span style="flex:1;">${item}</span>
-        </div>
-      `).join('')}
-    </div>
-    <div class="modal-actions">
-      <button class="btn" id="noticeOk">我知道了</button>
-    </div>
-  `);
-  const finish = () => {
-    try{ localStorage.setItem('libum_seen_version', version); }catch(e){}
-    closeModal();
-  };
-  m.querySelector('#noticeOk').onclick = finish;
-  m.addEventListener('click', e => { if (e.target === m) finish(); });
 }
 
 function checkBackupTip(){
@@ -1979,8 +2005,9 @@ function openKeepAliveSettings() {
 
     <div class="sec-title">保活测试</div>
     <div class="card-box" style="margin-bottom:16px;">
-      <div class="set-row" style="padding:10px 15px;">
-        <button class="btn" onclick="runKeepAliveTest()" style="width:100%;height:36px;font-size:12px;border-radius:12px;">保活测试</button>
+      <div class="set-row" style="padding:10px 15px;display:flex;gap:8px;">
+        <button class="btn" onclick="runKeepAliveTest()" style="flex:1;height:36px;font-size:12px;border-radius:12px;">保活测试</button>
+        <button class="btn" onclick="runNotificationTest()" style="flex:1;height:36px;font-size:12px;border-radius:12px;">通知权限测试</button>
       </div>
       <div id="fsKeepLog" style="font-size:11px; line-height:1.8; padding:10px 15px; color:var(--dim2); background:rgba(0,0,0,0.15); border-radius:0 0 20px 20px; display:none;">
       </div>
@@ -2040,6 +2067,24 @@ function runKeepAliveTest() {
     <div>锚点：连接锚点 ${st.connected ? 'connected' : 'disconnected'} · 心跳 ${st.heartbeats} 拍</div>
     <div style="margin-top:4px;">取证：断流 ${st.disconnectCount} 次 · 后台终止 ${st.terminationCount} 次 —— 非 0 = 系统冻结/回收过页面，那段时间的后台弹窗会缺</div>
   `;
+}
+
+async function runNotificationTest() {
+  const logEl = document.getElementById('fsKeepLog');
+  const show = (html) => { if (logEl) { logEl.style.display = 'block'; logEl.innerHTML = html; } };
+  if (!('Notification' in window)) { show('<div style="color:#ffb04a">此环境不支持系统通知</div>'); return; }
+  const perm = Notification.permission;
+  show(`<div>当前权限：<b>${perm}</b></div><div style="margin-top:4px;">正在尝试请求/发送…</div>`);
+  if (perm === 'denied') {
+    show('<div style="color:#ff8a9a">权限已被拒绝，请到系统/浏览器设置中允许 Libum 发送通知后再试</div>');
+    return;
+  }
+  if (perm === 'default') {
+    const ok = await requestNotificationPermission();
+    if (!ok) { show('<div style="color:#ff8a9a">未获得授权</div>'); return; }
+  }
+  LibumEngine.push('Libum 通知测试', '收到这条说明系统通知正常', 'libum-test-' + Date.now(), {}, false);
+  show('<div style="color:#7dfcb4">已尝试发送。若没看到：</div><div style="font-size:10.5px;line-height:1.6;opacity:.75;margin-top:4px;">1. 检查系统「设置 → 通知 → Libum」是否开启<br>2. iOS 需「添加到主屏幕」后从主屏图标打开才支持通知<br>3. 部分安卓 ROM 需允许「后台弹窗/通知」</div>');
 }
 </script><script>
 function uploadGlobalWallpaper(){
@@ -2575,24 +2620,33 @@ function renderQuoteBanner() {
 }
 
 function msgHTML(m,c,cs,isLast){
+  const isNew = __pendingAnimIds.has(m.id);
+  if (isNew) __pendingAnimIds.delete(m.id);
+  const animClass = isNew ? (m.from === 'me' ? 'msg-anim-me' : 'msg-anim-mj') : '';
+
   const showTs = !cs || cs.showTimestamp !== false;
   const timeHtml = showTs ? `<div class="msg-time">${msgTime(m.time)}</div>` : '';
   const readHtml = (cs.showRead !== false && isLast && m.from === 'me' && m.type !== 'pat') ? `<div style="font-size:9px;color:rgba(255,255,255,.6);text-align:right;margin-top:4px;padding-right:2px;">已读</div>` : '';
   const avatarShape = S.settings.avatarShape || 'rounded';
   const radiusStyle = avatarShape === 'square' ? 'border-radius: 4px;' : 'border-radius: 12px;';
   const avatarHtml = (isMe) => { const name = isMe ? (S.user.name || '我') : c.name; const av = isMe ? S.user.avatar : c.avatar; return `<img class="msg-avatar" src="${avatarSrc(av, name)}" style="${radiusStyle}" ${!isMe ? `onclick="tapAvatar('${c.id}')"` : ''}>`; };
-  if(m.type==='pat'){ return `<div class="sys-msg">${esc(m.text)}</div>`; }
-  if(m.type === 'photo'){
-    return `<div class="msg-row ${m.from==='me'?'me':'mj'}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:62%;min-width:0;"><img src="${m.url}" onclick="viewPhoto('${m.url}')" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;" style="width:90px;height:auto;max-width:100%;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid rgba(255,255,255,.3);-webkit-touch-callout:none;display:block;">${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
+
+  let html = '';
+
+  if(m.type==='pat'){
+    html = `<div class="sys-msg ${animClass}" data-msg-id="${m.id}">${esc(m.text)}</div>`;
   }
-  if(m.type === 'redpacket'){
+  else if(m.type === 'photo'){
+    html = `<div class="msg-row ${m.from==='me'?'me':'mj'} ${animClass}" data-msg-id="${m.id}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:62%;min-width:0;"><img src="${m.url}" onclick="viewPhoto('${m.url}')" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;" style="width:90px;height:auto;max-width:100%;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid rgba(255,255,255,.3);-webkit-touch-callout:none;display:block;">${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
+  }
+  else if(m.type === 'redpacket'){
     let subText, cls;
     if(m.refunded){ subText = '已退回'; cls = 'refunded'; }
     else if(m.opened){ subText = m.openedBy === 'me' ? ('已领取 ¥' + m.amount) : '已被领取'; cls = 'opened'; }
     else { subText = '点击领取红包'; cls = ''; }
-    return `<div class="msg-row ${m.from==='me'?'me':'mj'}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:74%;min-width:0;"><div class="redpacket-card ${cls}" onclick="openRedPacket('${m.id}')" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;"><div class="rp-icon">${ICONS.redpacket}</div><div class="rp-info"><div class="rp-remark">${esc(m.remark||'恭喜发财，大吉大利')}</div><div class="rp-sub">${subText}</div></div></div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
+    html = `<div class="msg-row ${m.from==='me'?'me':'mj'} ${animClass}" data-msg-id="${m.id}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:74%;min-width:0;"><div class="redpacket-card ${cls}" onclick="openRedPacket('${m.id}')" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;"><div class="rp-icon">${ICONS.redpacket}</div><div class="rp-info"><div class="rp-remark">${esc(m.remark||'恭喜发财，大吉大利')}</div><div class="rp-sub">${subText}</div></div></div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
   }
-  if(m.type === 'listenInvite'){
+  else if(m.type === 'listenInvite'){
     const accepted = m.accepted;
     let subText, cls = '';
     if(accepted === true){ subText = '已接受'; cls = 'accepted'; }
@@ -2600,32 +2654,38 @@ function msgHTML(m,c,cs,isLast){
     else { subText = m.from === 'me' ? '等待对方回应' : '等待你回应'; }
     const clickable = m.from === 'mj' && accepted === null;
     const actionBtns = clickable ? `<div class="li-actions"><button class="li-btn accept" onclick="event.stopPropagation();acceptListenInvite('${m.id}')">接受</button><button class="li-btn reject" onclick="event.stopPropagation();rejectListenInvite('${m.id}')">拒绝</button></div>` : '';
-    return `<div class="msg-row ${m.from==='me'?'me':'mj'}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:74%;min-width:0;"><div class="listen-invite-card ${cls}" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;"><div class="li-main-row"><div class="li-icon">${ICONS.music}</div><div class="li-info"><div class="li-title">一起听歌</div><div class="li-sub">${subText}</div></div></div>${actionBtns}</div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
+    html = `<div class="msg-row ${m.from==='me'?'me':'mj'} ${animClass}" data-msg-id="${m.id}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:74%;min-width:0;"><div class="listen-invite-card ${cls}" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;"><div class="li-main-row"><div class="li-icon">${ICONS.music}</div><div class="li-info"><div class="li-title">一起听歌</div><div class="li-sub">${subText}</div></div></div>${actionBtns}</div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
   }
-  if(m.type === 'music'){
+  else if(m.type === 'music'){
     const cover = m.cover || '';
     const quoteBlock = m.quote ? `<div class="quote-block" style="margin-bottom:6px;"><b>${esc(m.quote.author)}</b>: ${esc(m.quote.text)}</div>` : '';
-    return `<div class="msg-row ${m.from==='me'?'me':'mj'}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:74%;min-width:0;">${quoteBlock}<div class="music-msg-card" onclick="playMusicMessage('${m.id}')" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;"><div class="music-msg-cover" style="${cover?`background-image:url('${cover}')`:''}">${cover?'':ICONS.music}</div><div class="music-msg-info"><div class="music-msg-title">${esc(m.name||'未知歌曲')}</div><div class="music-msg-artist">${esc(m.artist||'未知歌手')}</div></div><div class="music-msg-icon">${ICONS.play}</div></div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
+    html = `<div class="msg-row ${m.from==='me'?'me':'mj'} ${animClass}" data-msg-id="${m.id}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:74%;min-width:0;">${quoteBlock}<div class="music-msg-card" onclick="playMusicMessage('${m.id}')" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;"><div class="music-msg-cover" style="${cover?`background-image:url('${cover}')`:''}">${cover?'':ICONS.music}</div><div class="music-msg-info"><div class="music-msg-title">${esc(m.name||'未知歌曲')}</div><div class="music-msg-artist">${esc(m.artist||'未知歌手')}</div></div><div class="music-msg-icon">${ICONS.play}</div></div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
   }
-  if(m.type==='image'){
+  else if(m.type==='image'){
     const size = m.size || S.settings.stickerSize || 120;
     const quoteBlock = m.quote ? `<div class="quote-block" style="margin-bottom:6px;"><b>${esc(m.quote.author)}</b>: ${esc(m.quote.text)}</div>` : '';
-    return `<div class="msg-row ${m.from==='me'?'me':'mj'}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:60%;min-width:0;">${quoteBlock}<img src="${m.url}" onclick="adjustStickerSize('${m.id}')" style="width: ${size}px; max-width:100%; border-radius:16px; object-fit:cover; cursor:pointer;">${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
+    html = `<div class="msg-row ${m.from==='me'?'me':'mj'} ${animClass}" data-msg-id="${m.id}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:60%;min-width:0;">${quoteBlock}<img src="${m.url}" onclick="adjustStickerSize('${m.id}')" style="width: ${size}px; max-width:100%; border-radius:16px; object-fit:cover; cursor:pointer;">${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
   }
-  if(m.type==='quiz'){
+  else if(m.type==='quiz'){
     const q=m.quiz||{};
     const opts=(q.options||[]).map((o,i)=>{ const chosen=m.answer&&m.answer.includes(i); const clickable=m.from==='mj'&&!m.answer; return `<div class="quiz-opt ${chosen?'chosen':''}" ${clickable?`onclick="answerQuiz('${m.id}',${i})"`:''}>${esc(o)}</div>`; }).join('');
-    return `<div class="msg-row ${m.from==='me'?'me':'mj'}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:80%;min-width:0;"><div class="quiz-card"><div class="quiz-label">${m.from==='me'?'我发出的问卷':'来自 '+esc(c.name)+' 的问卷'}</div><div class="quiz-q">${esc(q.title||'')}</div>${opts}</div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
+    html = `<div class="msg-row ${m.from==='me'?'me':'mj'} ${animClass}" data-msg-id="${m.id}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:80%;min-width:0;"><div class="quiz-card"><div class="quiz-label">${m.from==='me'?'我发出的问卷':'来自 '+esc(c.name)+' 的问卷'}</div><div class="quiz-q">${esc(q.title||'')}</div>${opts}</div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
   }
-  const quoteBlock = m.quote ? `<div class="quote-block"><b>${esc(m.quote.author)}</b>: ${esc(m.quote.text)}</div>` : '';
-  return `<div class="msg-row ${m.from==='me'?'me':'mj'}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:74%;min-width:0;"><div class="bubble" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;">${quoteBlock}${esc(m.text)}</div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
+  else {
+    const quoteBlock = m.quote ? `<div class="quote-block"><b>${esc(m.quote.author)}</b>: ${esc(m.quote.text)}</div>` : '';
+    html = `<div class="msg-row ${m.from==='me'?'me':'mj'} ${animClass}" data-msg-id="${m.id}">${m.from==='mj'?`<div class="msg-avatar-col">${avatarHtml(false)}${timeHtml}</div>`:''}<div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};max-width:74%;min-width:0;"><div class="bubble" ontouchstart="handleTouchStart(event,'${m.id}')" ontouchend="handleTouchEnd()" ontouchmove="handleTouchEnd()" oncontextmenu="showContextMenu(event.currentTarget,'${m.id}');return false;">${quoteBlock}${esc(m.text)}</div>${readHtml}</div>${m.from==='me'?`<div class="msg-avatar-col">${avatarHtml(true)}${timeHtml}</div>`:''}</div>`;
+  }
+  return html;
 }
+
+const __pendingAnimIds = new Set();
 
 function pushMsg(cid,msg){
   if(!S.chats[cid])S.chats[cid]=[];
   msg.id=msg.id||uid();
   msg.time=msg.time||Date.now();
   S.chats[cid].push(msg);
+  __pendingAnimIds.add(msg.id);
 
   const isCurrentChat = (cid === chatCtx.id && stack[stack.length-1].name === 'chatRoom');
 
@@ -2654,14 +2714,51 @@ function pushMsg(cid,msg){
   }
 }
 
-function refreshChat(){
-  const body=$('#chatBody'); if(!body)return;
-  const c=getContact(chatCtx.id); const cs=getChatSettings(chatCtx.id); const msgs=S.chats[chatCtx.id]||[];
+function refreshChat(opts){
+  opts = opts || {};
+  const body = $('#chatBody'); if(!body) return;
+  const c = getContact(chatCtx.id); if(!c) return;
+  const cs = getChatSettings(chatCtx.id);
+  const msgs = S.chats[chatCtx.id] || [];
+
   const avatarShape = S.settings.avatarShape || 'rounded';
   const radiusStyle = avatarShape === 'square' ? 'border-radius: 4px;' : 'border-radius: 12px;';
-  body.innerHTML=msgs.map((m,i)=>msgHTML(m,c,cs,i===msgs.length-1)).join('') + `<div class="msg-row mj typing-row" id="typingIndicatorRow"><div class="msg-avatar-col"><img class="msg-avatar" src="" id="typingAvatar" style="${radiusStyle}"></div><div style="display:flex;flex-direction:column;align-items:flex-start;max-width:74%;min-width:0;"><div class="bubble" style="display:flex;align-items:center;gap:4px;padding:10px 14px;"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div></div></div>`;
-  const typingRow = $('#typingIndicatorRow');
-  if (typingRow && typingState[chatCtx.id]) { if(c) $('#typingAvatar').src = avatarSrc(c.avatar, c.name); typingRow.classList.add('show'); }
+  const typingHTML = `<div class="msg-row mj typing-row" id="typingIndicatorRow"><div class="msg-avatar-col"><img class="msg-avatar" src="" id="typingAvatar" style="${radiusStyle}"></div><div style="display:flex;flex-direction:column;align-items:flex-start;max-width:74%;min-width:0;"><div class="bubble" style="display:flex;align-items:center;gap:4px;padding:10px 14px;"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div></div></div>`;
+
+  const existingEls = Array.from(body.querySelectorAll(':scope > [data-msg-id]'));
+  const existingIds = existingEls.map(el => el.dataset.msgId);
+  const existingSet = new Set(existingIds);
+  const typingRow = body.querySelector('#typingIndicatorRow');
+
+  let orderMatches = !!typingRow && existingIds.length === msgs.length;
+  if (orderMatches) {
+    for (let i = 0; i < msgs.length; i++) {
+      if (existingIds[i] !== msgs[i].id) { orderMatches = false; break; }
+    }
+  }
+
+  if (opts.full || !orderMatches) {
+    body.innerHTML = msgs.map((m, i) => msgHTML(m, c, cs, i === msgs.length - 1)).join('') + typingHTML;
+  } else {
+    const newMsgs = msgs.filter(m => !existingSet.has(m.id));
+    if (newMsgs.length > 0) {
+      newMsgs.forEach(m => {
+        const isLast = msgs[msgs.length - 1].id === m.id;
+        const html = msgHTML(m, c, cs, isLast);
+        const temp = document.createElement('div');
+        temp.innerHTML = html.trim();
+        const newNode = temp.firstElementChild;
+        if (!newNode) return;
+        body.insertBefore(newNode, typingRow);
+      });
+    }
+  }
+
+  const newTypingRow = $('#typingIndicatorRow');
+  if (newTypingRow && typingState[chatCtx.id]) {
+    if (c) { const av = $('#typingAvatar'); if(av) av.src = avatarSrc(c.avatar, c.name); }
+    newTypingRow.classList.add('show');
+  }
   renderQuoteBanner(); scrollChat();
 }
 function scrollChat(){ const b=$('#chatBody'); if(b)b.scrollTop=b.scrollHeight; }
@@ -3243,7 +3340,9 @@ function checkAllTimers(){
   if (dirty) {
     save();
     const top = stack[stack.length - 1].name;
-    if (top === 'chatRoom' || top === 'moments' || top === 'mail' || top === 'visitors') {
+    if (top === 'chatRoom') {
+      try { refreshChat(); updateBadges(); } catch(e) { try { render(); } catch(e2) {} }
+    } else if (top === 'moments' || top === 'mail' || top === 'visitors') {
       try { render(); } catch(e) {}
     } else {
       try { updateBadges(); } catch(e) {}
@@ -3330,6 +3429,34 @@ function handoffToSW(){
   }).catch(() => {});
 }
 
+function mergeStateSafely(localState, remoteState) {
+  const merged = deepMerge(clone(DEFAULT_STATE), remoteState);
+  if (localState && localState.chats && merged.chats) {
+    Object.keys(localState.chats).forEach(cid => {
+      const localMsgs = localState.chats[cid] || [];
+      if (!Array.isArray(localMsgs) || !localMsgs.length) return;
+      if (!merged.chats[cid]) merged.chats[cid] = [];
+      const remoteMsgs = merged.chats[cid];
+      const remoteIdSet = new Set(remoteMsgs.map(m => m && m.id).filter(Boolean));
+      let added = false;
+      localMsgs.forEach(m => {
+        if (m && m.id && !remoteIdSet.has(m.id)) { remoteMsgs.push(m); added = true; }
+      });
+      if (added) remoteMsgs.sort((a, b) => (a.time || 0) - (b.time || 0));
+    });
+  }
+  if (localState && localState.unread && merged.unread) {
+    if (localState.unread.chats && merged.unread.chats) {
+      Object.keys(localState.unread.chats).forEach(cid => {
+        merged.unread.chats[cid] = Math.max(localState.unread.chats[cid] || 0, merged.unread.chats[cid] || 0);
+      });
+    }
+    if (localState.unread.moments) merged.unread.moments = Math.max(merged.unread.moments || 0, localState.unread.moments);
+    if (localState.unread.letters) merged.unread.letters = Math.max(merged.unread.letters || 0, localState.unread.letters);
+  }
+  return merged;
+}
+
 async function syncBackFromSW() {
   try {
     const raw = await idbGet('libum_data');
@@ -3338,7 +3465,7 @@ async function syncBackFromSW() {
       if (d && d.state) {
         const state = unpackAssets(d.state, d.assets);
         if (state) {
-          S = deepMerge(clone(DEFAULT_STATE), state);
+          S = mergeStateSafely(S, state);
           normalizeState();
           lastScrollKey = '';
           applySettings();
@@ -3357,14 +3484,29 @@ async function syncBackFromSW() {
   try {
     const rawQ = await idbGet('libum_queue');
     if (rawQ) {
+      // 先删，避免下一次 syncBackFromSW 并发再次读到
+      try {
+        if (idbDB) {
+          const tx = idbDB.transaction('kv', 'readwrite');
+          tx.objectStore('kv').delete('libum_queue');
+        }
+      } catch (e) {}
+
       const q = typeof rawQ === 'string' ? JSON.parse(rawQ) : rawQ;
       if (Array.isArray(q) && q.length) {
         let touched = false;
         q.forEach(item => {
           if (!item || !item.cid || !item.t) return;
           if (!S.chats[item.cid]) S.chats[item.cid] = [];
+          const mid = item.id || uid();
+          if (S.chats[item.cid].some(m => m.id === mid)) return;
+          if (S.chats[item.cid].some(m =>
+            m.from === 'mj' && m.type === 'text' && m.text === item.t &&
+            Math.abs((m.time || 0) - (item.ts || 0)) < 2000
+          )) return;
+
           S.chats[item.cid].push({
-            id: uid(),
+            id: mid,
             from: 'mj',
             type: 'text',
             text: item.t,
@@ -3376,12 +3518,6 @@ async function syncBackFromSW() {
         });
         if (touched) save(true);
       }
-      if (idbDB) {
-        try {
-          const tx = idbDB.transaction('kv', 'readwrite');
-          tx.objectStore('kv').delete('libum_queue');
-        } catch (e) {}
-      }
     }
   } catch (e) { console.warn('syncBackFromSW 消费队列失败', e); }
 
@@ -3390,6 +3526,7 @@ async function syncBackFromSW() {
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
+    try { save(true); } catch(e) {}
     handoffToSW();
   } else {
     syncBackFromSW();
@@ -5138,13 +5275,20 @@ async function initStorage(){
   try {
     const queueRaw = await idbGet('libum_queue');
     if (queueRaw) {
+      try { idbDelete('libum_queue'); } catch(e) {}
       const queue = typeof queueRaw === 'string' ? JSON.parse(queueRaw) : queueRaw;
       if (Array.isArray(queue) && queue.length) {
         queue.forEach(item => {
           if (item.t && item.cid) {
             if (!S.chats[item.cid]) S.chats[item.cid] = [];
+            const mid = item.id || uid();
+            if (S.chats[item.cid].some(m => m.id === mid)) return;
+            if (S.chats[item.cid].some(m =>
+              m.from === 'mj' && m.type === 'text' && m.text === item.t &&
+              Math.abs((m.time || 0) - (item.ts || 0)) < 2000
+            )) return;
             S.chats[item.cid].push({
-              id: uid(), from: 'mj', type: 'text',
+              id: mid, from: 'mj', type: 'text',
               text: item.t, time: item.ts || Date.now()
             });
             if (!S.unread.chats[item.cid]) S.unread.chats[item.cid] = 0;
@@ -5152,7 +5296,6 @@ async function initStorage(){
           }
         });
         save(true);
-        idbDelete('libum_queue');
       }
     }
   } catch(e){ console.warn('SW 队列恢复失败', e); }
@@ -5201,7 +5344,7 @@ async function initStorage(){
                 const d = JSON.parse(raw);
                 const state = d.state ? unpackAssets(d.state, d.assets) : d;
                 if (state) {
-                  S = deepMerge(clone(DEFAULT_STATE), state);
+                  S = mergeStateSafely(S, state);
                   normalizeState();
                   lastScrollKey = '';
                   if (document.visibilityState === 'visible') {
@@ -5252,7 +5395,19 @@ async function initStorage(){
   }, 1000);
 
   checkBackupTip();
-  checkUpdateNotice();
+
+  // 补发上次未发送成功的系统通知（防漏）
+  (async () => {
+    try {
+      const fb = await idbGet('libum_notif_fallback');
+      if (fb && (Date.now() - (fb.ts || 0)) < 60 * 60 * 1000) {
+        setTimeout(() => {
+          LibumEngine.push(fb.title, fb.body, fb.tag, fb.data, false);
+        }, 2000);
+      }
+      idbDelete('libum_notif_fallback');
+    } catch (e) {}
+  })();
 
   try{
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
