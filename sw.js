@@ -20,7 +20,7 @@
 const DB_NAME      = 'pwa_kv_store';
 const DB_VERSION   = 1;
 const STORE_NAME   = 'kv';
-const STATIC_CACHE = 'pwa-static-v1';
+const STATIC_CACHE = 'pwa-static-v2';
 
 const FALLBACK_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96">' +
@@ -295,10 +295,15 @@ self.addEventListener('fetch', (event) => {
     const cache = await caches.open(STATIC_CACHE);
     const isHtml = /\.html$/i.test(url.pathname) || url.pathname.endsWith('/');
     if (isHtml) {
-      const cached = await cache.match(req);
-      if (cached) {
-        fetch(req).then(res => { if (res && res.ok) cache.put(req, res); }).catch(() => {});
-        return cached;
+      // HTML 用网络优先：发布新页面后立刻生效，只有断网时才回退旧缓存
+      try {
+        const res = await fetch(req);
+        if (res && res.ok) { try { cache.put(req, res.clone()); } catch (e) {} }
+        return res;
+      } catch (e) {
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        throw e;
       }
     }
     try {
