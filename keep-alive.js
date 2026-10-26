@@ -101,7 +101,7 @@ const KEEP = (() => {
     try {
       audioEl = new Audio(SILENT_WAV);
       audioEl.loop = true;
-      audioEl.volume = 0.03; // 极低音量但有真实音波，浏览器才判定在播放
+      audioEl.volume = 0.4; // 轻柔但可闻，浏览器才判定在播放并弹卡片
       return audioEl;
     } catch (e) { return null; }
   }

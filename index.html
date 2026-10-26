@@ -766,7 +766,7 @@ html:not(.on-home) .watch-active-glow {
           keepAudioEl.volume = 1;
         } else {
           keepAudioEl.src = MINIMAL_AUDIO_B64;
-          keepAudioEl.volume = 0.03; // 极低音量但有真实音波，浏览器才判定在播放
+          keepAudioEl.volume = 0.4; // 轻柔但可闻，浏览器才判定在播放并弹卡片
         }
         keepAudioEl.loop = true;
         const p = keepAudioEl.play();
