@@ -7,7 +7,7 @@
 const DB_NAME        = 'libum_store';
 const DB_VERSION     = 1;
 const STORE_NAME     = 'kv';
-const STATIC_CACHE   = 'libum-static-v5'; // 版本号升级
+const STATIC_CACHE   = 'libum-static-v6'; // 版本号升级
 
 const FALLBACK_ICON  = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96">' +
@@ -97,6 +97,10 @@ async function loadQueue() {
 }
 async function pushQueue(item) {
   const q = await loadQueue();
+  // 幂等：相同 id 或 (cid+t+ts) 已存在则跳过
+  if (q.some(x => x && (x.id === item.id || (x.cid === item.cid && x.t === item.t && Math.abs((x.ts||0)-(item.ts||0)) < 2000)))) {
+    return true;
+  }
   q.push(item);
   while (q.length > QUEUE_LIMIT) q.shift();
   return idbSet('libum_queue', q);
@@ -191,11 +195,9 @@ async function fireTask(task) {
   const d = task.data || {};
 
   try {
-    await showLibumNotification(
-      task.title || 'Libum', task.body || '有新消息',
-      task.tag || ('libum-' + task.id), d
-    );
-
+    /* 关键修复：先把消息写入队列，再发通知。
+     * 这样即使通知点击后立刻关闭页面，消息也已经落盘，
+     * 打开 App 后一定能看到这条消息，不会出现“点进去没有”。 */
     if (d.type === 'AUTO_MSG' && d.cid) {
       await pushQueue({
         id: task.id, cid: d.cid, type: 'AUTO_MSG',
@@ -203,6 +205,11 @@ async function fireTask(task) {
       });
       await bumpChatSetting(d.cid, 'nextAutoMsgTime', now);
     }
+
+    await showLibumNotification(
+      task.title || 'Libum', task.body || '有新消息',
+      task.tag || ('libum-' + task.id), d
+    );
 
     const tasks = await loadTasks();
     const idx = tasks.findIndex(t => t.id === task.id);
@@ -313,7 +320,7 @@ self.addEventListener('notificationclick', (event) => {
     if (wins && wins.length) {
       const w = wins[0];
       try { await w.focus(); } catch (e) {}
-      try { w.postMessage({ type: 'OPEN_CHAT', cid: data.cid }); } catch (e) {}
+      try { w.postMessage({ type: 'OPEN_CHAT', cid: data.cid, msgId: data.msgId }); } catch (e) {}
       return;
     }
     const url = data.cid

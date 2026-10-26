@@ -953,16 +953,26 @@ if ('serviceWorker' in navigator) {
   }).catch(err => { console.log('Service Worker 注册失败:', err); });
 
   navigator.serviceWorker.addEventListener('message', (e) => {
-    const d = e.data || {};
-    if (d.type === 'OPEN_CHAT' && d.cid) { try { go('chatRoom', { id: d.cid }); } catch(err){} }
-    if (d.type === 'MOCHI_NOTIFY_CLICK') {
-      try {
-        idbDelete('libum_notify_click');
-        if (d.cid) go('chatRoom', { id: d.cid });
-        else if (d.data && d.data.page) go(d.data.page, d.data);
-      } catch(err){}
-    }
-  });
+  const d = e.data || {};
+  if (d.type === 'OPEN_CHAT' && d.cid) {
+    try {
+      go('chatRoom', { id: d.cid });
+      if (d.msgId) {
+        setTimeout(() => {
+          const el = document.querySelector(`[data-msg-id="${d.msgId}"]`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 400);
+      }
+    } catch(err){}
+  }
+  if (d.type === 'MOCHI_NOTIFY_CLICK') {
+    try {
+      idbDelete('libum_notify_click');
+      if (d.cid) go('chatRoom', { id: d.cid });
+      else if (d.data && d.data.page) go(d.data.page, d.data);
+    } catch(err){}
+  }
+});
 }
 
 const $=(s,r=document)=>r.querySelector(s);
@@ -2733,10 +2743,10 @@ function pushMsg(cid,msg){
   if(!isCurrentChat){
     if(!S.unread.chats[cid]) S.unread.chats[cid] = 0;
     S.unread.chats[cid]++;
-    save();
+    save(true);
     setTimeout(() => { updateBadges(); }, 100);
   } else {
-    save();
+    save(true);
   }
 
   if(msg.from === 'mj'){
@@ -2751,7 +2761,7 @@ function pushMsg(cid,msg){
     else if(msg.type === 'listenInvite') preview = '[一起听]';
     else if(msg.type === 'music') preview = '[音乐] ' + (msg.name||'');
 
-    LibumEngine.push(title, preview, 'libum-chat-' + cid, { cid: cid }, !document.hidden, av);
+    LibumEngine.push(title, preview, 'libum-chat-' + cid, { cid: cid, msgId: msg.id }, !document.hidden, av);
   }
 }
 
@@ -3404,7 +3414,20 @@ function safeTick(force){
 }
 setInterval(safeTick, 15000);
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) { __lastTick = 0; setTimeout(() => safeTick(true), 300); }
+  if (!document.hidden) {
+    __lastTick = 0;
+    // 回到前台：立即补跑定时器 + 同步 SW 队列
+    setTimeout(async () => {
+      safeTick(true);
+      try { await syncBackFromSW(); } catch(e) {}
+      if (stack[stack.length-1].name === 'chatRoom') {
+        try { refreshChat(); } catch(e) {}
+      } else {
+        try { render(); } catch(e) {}
+      }
+      updateBadges();
+    }, 200);
+  }
 });
 
 const TASK_HORIZON_MS = 5 * 60 * 1000;
@@ -3525,16 +3548,9 @@ async function syncBackFromSW() {
   try {
     const rawQ = await idbGet('libum_queue');
     if (rawQ) {
-      try {
-        if (idbDB) {
-          const tx = idbDB.transaction('kv', 'readwrite');
-          tx.objectStore('kv').delete('libum_queue');
-        }
-      } catch (e) {}
-
       const q = typeof rawQ === 'string' ? JSON.parse(rawQ) : rawQ;
+      let touched = false;
       if (Array.isArray(q) && q.length) {
-        let touched = false;
         q.forEach(item => {
           if (!item || !item.cid || !item.t) return;
           if (!S.chats[item.cid]) S.chats[item.cid] = [];
@@ -3556,8 +3572,9 @@ async function syncBackFromSW() {
           S.unread.chats[item.cid]++;
           touched = true;
         });
-        if (touched) save(true);
       }
+      if (touched) save(true);
+      try { idbDelete('libum_queue'); } catch (e) {}
     }
   } catch (e) { console.warn('syncBackFromSW 消费队列失败', e); }
 
@@ -5318,32 +5335,35 @@ async function initStorage(){
   migratePatCards();
 
   try {
-    const queueRaw = await idbGet('libum_queue');
-    if (queueRaw) {
-      try { idbDelete('libum_queue'); } catch(e) {}
-      const queue = typeof queueRaw === 'string' ? JSON.parse(queueRaw) : queueRaw;
-      if (Array.isArray(queue) && queue.length) {
-        queue.forEach(item => {
-          if (item.t && item.cid) {
-            if (!S.chats[item.cid]) S.chats[item.cid] = [];
-            const mid = item.id || uid();
-            if (S.chats[item.cid].some(m => m.id === mid)) return;
-            if (S.chats[item.cid].some(m =>
-              m.from === 'mj' && m.type === 'text' && m.text === item.t &&
-              Math.abs((m.time || 0) - (item.ts || 0)) < 2000
-            )) return;
-            S.chats[item.cid].push({
-              id: mid, from: 'mj', type: 'text',
-              text: item.t, time: item.ts || Date.now()
-            });
-            if (!S.unread.chats[item.cid]) S.unread.chats[item.cid] = 0;
-            S.unread.chats[item.cid]++;
-          }
-        });
-        save(true);
-      }
+  const queueRaw = await idbGet('libum_queue');
+  if (queueRaw) {
+    const queue = typeof queueRaw === 'string' ? JSON.parse(queueRaw) : queueRaw;
+    let consumed = false;
+    if (Array.isArray(queue) && queue.length) {
+      queue.forEach(item => {
+        if (item.t && item.cid) {
+          if (!S.chats[item.cid]) S.chats[item.cid] = [];
+          const mid = item.id || uid();
+          if (S.chats[item.cid].some(m => m.id === mid)) return;
+          if (S.chats[item.cid].some(m =>
+            m.from === 'mj' && m.type === 'text' && m.text === item.t &&
+            Math.abs((m.time || 0) - (item.ts || 0)) < 2000
+          )) return;
+          S.chats[item.cid].push({
+            id: mid, from: 'mj', type: 'text',
+            text: item.t, time: item.ts || Date.now()
+          });
+          if (!S.unread.chats[item.cid]) S.unread.chats[item.cid] = 0;
+          S.unread.chats[item.cid]++;
+          consumed = true;
+        }
+      });
     }
-  } catch(e){ console.warn('SW 队列恢复失败', e); }
+    if (consumed) save(true);
+    // 消费完成后才删除队列，避免异常时消息丢失
+    try { idbDelete('libum_queue'); } catch(e) {}
+  }
+} catch(e){ console.warn('SW 队列恢复失败', e); }
 
   try {
     const fbRaw = await idbGet('libum_notif_fallback');
