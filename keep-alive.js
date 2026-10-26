@@ -71,6 +71,7 @@ const KEEP = (() => {
   /* ---------------- 3. 循环静音音频防冻结 + 媒体卡片 ---------------- */
   const SILENT_WAV = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
   let audioEl = null;
+  let mediaReady = false; // 音频是否真正跑起来、媒体卡片是否可显示
 
   // 设置系统媒体卡片，并把控制按钮全部拦住，防止被暂停
   function setMediaSession() {
@@ -108,10 +109,14 @@ const KEEP = (() => {
   function startAudio() {
     const el = ensureAudioEl();
     if (!el) return;
+    if (mediaReady && !el.paused) return; // 已在播放则复用，避免重启空档
     try {
       const p = el.play();
       if (p && typeof p.then === 'function') {
-        p.then(() => setMediaSession()).catch(() => {});
+        p.then(() => { mediaReady = true; setMediaSession(); }).catch(() => { mediaReady = false; });
+      } else {
+        mediaReady = true;
+        setMediaSession();
       }
     } catch (e) {}
   }
@@ -119,15 +124,21 @@ const KEEP = (() => {
   function stopAudio() {
     if (audioEl) { try { audioEl.pause(); } catch (e) {} }
     try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch (e) {}
+    mediaReady = false;
   }
 
-  // 首次用户交互时预热：获得自动播放授权，之后切后台才能顺利播放。
-  // 点击瞬间立即把媒体卡片建好，用户一碰页面就能看到。
+  // 进站即触发：一进页面就尝试启动音频并弹出媒体卡片，不要求先交互。
+  // 若被浏览器自动播放策略拦截，挂在用户首次触摸/点击时再补启动；
+  // 只有真正跑起来才解绑，避免失败后失去重试机会。
   function primeAudio() {
     if (!config.keepAlive) return;
     ensureAudioEl();
     setMediaSession();
     startAudio();
+    if (mediaReady) {
+      document.removeEventListener('touchstart', primeAudio);
+      document.removeEventListener('click', primeAudio);
+    }
   }
 
   /* ---------------- 4. 接收 SW 回传 ---------------- */
@@ -152,18 +163,12 @@ const KEEP = (() => {
       }
     });
 
-    // 首次触摸或点击时预热音频，拿到自动播放授权
-    let primed = false;
-    const prime = () => {
-      if (primed) return;
-      primed = true;
-      document.removeEventListener('touchstart', prime);
-      document.removeEventListener('click', prime);
-      primeAudio();
-    };
+    // 进站立即触发，不等用户交互
     if (config.keepAlive) {
-      document.addEventListener('touchstart', prime);
-      document.addEventListener('click', prime);
+      primeAudio();
+      // 兜底：自动播放被浏览器拦截时，用户首次触摸/点击再补启动
+      document.addEventListener('touchstart', primeAudio);
+      document.addEventListener('click', primeAudio);
     }
 
     if ('serviceWorker' in navigator) {
