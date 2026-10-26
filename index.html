@@ -209,29 +209,25 @@ html.app-hidden .watch-active-glow { animation-play-state: paused !important; }
 .bubble{width: fit-content;max-width:100%;padding:10px 14px;font-size:calc(14px * var(--fs));line-height:1.5;border-radius:18px;word-break:normal;overflow-wrap:break-word;background:rgba(255,255,255,.22);backdrop-filter:blur(var(--blur)) saturate(170%);-webkit-backdrop-filter:blur(var(--blur)) saturate(170%);border:1px solid rgba(255,255,255,.3);box-shadow:0 4px 16px rgba(50,35,100,.1);position:relative;-webkit-touch-callout:none;}
 .msg-row.me .bubble{background:rgba(255,255,255,.42);border-color:rgba(255,255,255,.55);}
 
-/* iMessage 风格进入动画：仅对新消息使用 */
+/* 更轻盈的进入动画，取代原来浮夸的弹动 */
 @keyframes msgInMe {
-  0%   { opacity: 0; transform: translateY(26px) scale(0.68); }
-  55%  { opacity: 1; transform: translateY(-3px) scale(1.03); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  0%   { opacity: 0; transform: translateY(15px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 @keyframes msgInMj {
-  0%   { opacity: 0; transform: translateX(-24px) scale(0.82); }
-  55%  { opacity: 1; transform: translateX(3px) scale(1.01); }
-  100% { opacity: 1; transform: translateX(0) scale(1); }
+  0%   { opacity: 0; transform: translateY(15px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 @keyframes sysMsgIn {
   0%   { opacity: 0; transform: translateY(6px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 .msg-row.msg-anim-me {
-  animation: msgInMe 0.42s cubic-bezier(0.32, 1.4, 0.5, 1) both;
-  transform-origin: right bottom;
+  animation: msgInMe 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   will-change: transform, opacity;
 }
 .msg-row.msg-anim-mj {
-  animation: msgInMj 0.42s cubic-bezier(0.32, 1.4, 0.5, 1) both;
-  transform-origin: left bottom;
+  animation: msgInMj 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   will-change: transform, opacity;
 }
 .sys-msg.msg-anim-me,
@@ -2003,11 +1999,11 @@ function openKeepAliveSettings() {
       <div class="set-row" style="padding:10px 15px;"><div style="font-size:11px;opacity:.55;line-height:1.6;">点击可换成自定义音频（白噪音/助眠声，会按原音量出声）</div></div>
     </div>
 
-    <div class="sec-title">保活测试</div>
+    <div class="sec-title">综合状态测试</div>
     <div class="card-box" style="margin-bottom:16px;">
       <div class="set-row" style="padding:10px 15px;display:flex;gap:8px;">
-        <button class="btn" onclick="runKeepAliveTest()" style="flex:1;height:36px;font-size:12px;border-radius:12px;">保活测试</button>
-        <button class="btn" onclick="runNotificationTest()" style="flex:1;height:36px;font-size:12px;border-radius:12px;">通知权限测试</button>
+        <!-- 合并为一个测试按钮 -->
+        <button class="btn" onclick="runCombinedTest()" style="flex:1;height:36px;font-size:12px;border-radius:12px;">综合状态测试 (保活 + 通知)</button>
       </div>
       <div id="fsKeepLog" style="font-size:11px; line-height:1.8; padding:10px 15px; color:var(--dim2); background:rgba(0,0,0,0.15); border-radius:0 0 20px 20px; display:none;">
       </div>
@@ -2050,42 +2046,64 @@ function pickKeepAliveAudio() {
   inp.click();
 }
 
-function runKeepAliveTest() {
+// 将保活与通知测试合并
+async function runCombinedTest() {
   const logEl = document.getElementById('fsKeepLog');
   if (!logEl) return;
   logEl.style.display = 'block';
-  const st = LibumEngine.getStatus();
   
+  const st = LibumEngine.getStatus();
   const modeText = st.audioMode === 'webaudio' ? '静音通道 (WebAudio · 不占媒体)' : st.audioMode === 'media' ? '媒体通道 (会占声道)' : '未播放';
   const iosWarning = st.audioMode === 'media' ? '<div style="font-size:10px;opacity:0.8;margin-top:2px;">iOS 后台易被系统挂起，挂起会自动换回媒体元素</div>' : '';
   
-  logEl.innerHTML = `
+  let html = `
     <div style="color:#7dfcb4;margin-bottom:4px;">● 保活状态：${st.running ? '运行中' : '已停止'}</div>
     <div>音频：${st.running ? '播放中 · ' + modeText : '未播放'}</div>
     ${iosWarning}
     <div style="margin-top:4px;">后台存活：本次 ${st.survivalTime} 秒 · 最长 ${st.maxSurvival} 秒 · 最近一次 ${st.lastSurvival} 秒</div>
     <div>锚点：连接锚点 ${st.connected ? 'connected' : 'disconnected'} · 心跳 ${st.heartbeats} 拍</div>
     <div style="margin-top:4px;">取证：断流 ${st.disconnectCount} 次 · 后台终止 ${st.terminationCount} 次 —— 非 0 = 系统冻结/回收过页面，那段时间的后台弹窗会缺</div>
+    <hr style="border:0;border-top:1px solid rgba(255,255,255,.1);margin:8px 0;">
   `;
+
+  // 通知测试部分
+  if (!('Notification' in window)) { 
+    html += '<div style="color:#ffb04a">此环境不支持系统通知</div>'; 
+    logEl.innerHTML = html;
+    return; 
+  }
+  
+  const perm = Notification.permission;
+  html += `<div>通知权限：<b>${perm}</b></div>`;
+  
+  if (perm === 'denied') {
+    html += '<div style="color:#ff8a9a;margin-top:4px;">权限已被拒绝，请到系统/浏览器设置中允许 Libum 发送通知后再试</div>';
+  } else if (perm === 'default') {
+    html += '<div style="color:#ffb04a;margin-top:4px;">正在尝试请求授权…</div>';
+    logEl.innerHTML = html;
+    const ok = await requestNotificationPermission();
+    if (!ok) { 
+      html += '<div style="color:#ff8a9a;margin-top:4px;">未获得授权</div>'; 
+      logEl.innerHTML = html; 
+      return; 
+    }
+    html += '<div style="color:#7dfcb4;margin-top:4px;">权限已获取</div>';
+  } else {
+    html += '<div style="color:#7dfcb4;margin-top:4px;">权限正常</div>';
+  }
+
+  html += '<div style="margin-top:4px;">正在发送测试通知…</div>';
+  logEl.innerHTML = html;
+  
+  LibumEngine.push('Libum 综合测试', '保活与通知功能正常', 'libum-test-' + Date.now(), {}, false);
+  
+  html += '<div style="color:#7dfcb4;margin-top:4px;">✅ 已尝试发送系统通知。若没看到：</div>';
+  html += '<div style="font-size:10.5px;line-height:1.6;opacity:.75;margin-top:2px;">1. 检查系统「设置 → 通知 → Libum」是否开启<br>2. iOS 需「添加到主屏幕」后从主屏图标打开才支持通知<br>3. 部分安卓 ROM 需允许「后台弹窗/通知」</div>';
+  
+  logEl.innerHTML = html;
 }
 
-async function runNotificationTest() {
-  const logEl = document.getElementById('fsKeepLog');
-  const show = (html) => { if (logEl) { logEl.style.display = 'block'; logEl.innerHTML = html; } };
-  if (!('Notification' in window)) { show('<div style="color:#ffb04a">此环境不支持系统通知</div>'); return; }
-  const perm = Notification.permission;
-  show(`<div>当前权限：<b>${perm}</b></div><div style="margin-top:4px;">正在尝试请求/发送…</div>`);
-  if (perm === 'denied') {
-    show('<div style="color:#ff8a9a">权限已被拒绝，请到系统/浏览器设置中允许 Libum 发送通知后再试</div>');
-    return;
-  }
-  if (perm === 'default') {
-    const ok = await requestNotificationPermission();
-    if (!ok) { show('<div style="color:#ff8a9a">未获得授权</div>'); return; }
-  }
-  LibumEngine.push('Libum 通知测试', '收到这条说明系统通知正常', 'libum-test-' + Date.now(), {}, false);
-  show('<div style="color:#7dfcb4">已尝试发送。若没看到：</div><div style="font-size:10.5px;line-height:1.6;opacity:.75;margin-top:4px;">1. 检查系统「设置 → 通知 → Libum」是否开启<br>2. iOS 需「添加到主屏幕」后从主屏图标打开才支持通知<br>3. 部分安卓 ROM 需允许「后台弹窗/通知」</div>');
-}
+async function runNotificationTest() { /* 保留空函数以防其他地方调用报错 */ }
 </script><script>
 function uploadGlobalWallpaper(){
   pickImage(d => {
@@ -3780,19 +3798,24 @@ function addSongsToLibrary(songs){
   return added;
 }
 
-function openImportPlaylist(){
+// 将“导入歌单”改为“网易云同步”
+function openNeteaseSync(){
   const m = openModal(`
-    <div class="modal-title">导入网易云歌单</div>
-    <div style="font-size:11.5px;line-height:1.8;opacity:.78;margin-bottom:12px;padding:11px 13px;background:rgba(255,255,255,.08);border-radius:12px;">
-      在网易云 App / 网页版打开歌单，点「分享」→「复制链接」，粘贴到下方。<br>
-      支持 163cn.tv 短链接、标准链接或纯数字歌单 ID。
+    <div class="modal-title">网易云账号同步</div>
+    <div style="font-size:12px;line-height:1.8;opacity:.85;margin-bottom:12px;padding:12px;background:rgba(255,255,255,.08);border-radius:12px;">
+      <b>纯前端应用无法直接扫码登录。</b><br>
+      但你可以通过“分享链接”的方式，将你账号里的“我喜欢的音乐”或“我的歌单”全部同步过来。
     </div>
-    <input class="field-input" id="plInput" placeholder="支持 163cn.tv 短链接 / playlist?id=xxx / 纯数字 ID">
+    <div class="field-label">粘贴歌单链接 / 纯数字 ID</div>
+    <input class="field-input" id="plInput" placeholder="例如：https://music.163.com/playlist?id=123456">
+    <div style="font-size:11px;opacity:.6;line-height:1.6;margin-top:-4px;margin-bottom:12px;">
+      支持：网易云App分享的短链接 (163cn.tv) / 完整链接 / 纯数字歌单 ID。
+    </div>
     <div id="plStatus" style="font-size:12px;opacity:.72;line-height:1.7;margin:4px 0 8px;min-height:18px;"></div>
     <div id="plList" style="max-height:38vh;overflow-y:auto;margin-bottom:10px;"></div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">取消</button>
-      <button class="btn" id="plFetch">导入</button>
+      <button class="btn" id="plFetch">开始同步</button>
     </div>
   `);
   const status = m.querySelector('#plStatus');
@@ -3814,14 +3837,14 @@ function openImportPlaylist(){
       }
       return;
     }
-    status.textContent = '⏳ 正在解析歌单（ID: ' + pid + '）…';
+    status.textContent = '⏳ 正在获取歌单数据（ID: ' + pid + '）…';
     const data = await fetchNeteasePlaylistSongs(pid);
     if(!data || !data.length){
       status.textContent = '❌ 解析失败：歌单为空或接口暂时不可用，请稍后重试';
       return;
     }
     songs = data.map(metingToSong).filter(Boolean);
-    status.textContent = `✅ 解析成功，共 ${songs.length} 首`;
+    status.textContent = `✅ 同步成功，共 ${songs.length} 首`;
     listEl.innerHTML = `
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <button class="btn" id="plAddAll" style="height:36px;font-size:12px;">全部加入曲库</button>
@@ -3842,6 +3865,8 @@ function openImportPlaylist(){
     listEl.querySelector('#plPlayAll').onclick = () => { addSongsToLibrary(songs); addSongAndPlay(songs[0]); closeModal(); showToast('正在播放：' + songs[0].name); };
   };
 }
+// 兼容旧函数名
+function openImportPlaylist(){ openNeteaseSync(); }
 
 function renderSongList(){
   let list = [];
@@ -3948,11 +3973,12 @@ function viewListen(){
         <button class="chip ${S.listenWith?'active':''}" id="inviteBtn" onclick="toggleListen()" style="margin-top:4px;">${S.listenWith?'结束一起听':'邀请一起听'}</button>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div class="field-label" style="margin:0;">网易云音乐</div>
-        <button class="ncm-login-btn" onclick="openImportPlaylist()">导入歌单链接</button>
+        <div class="field-label" style="margin:0;">网易云音乐账号</div>
+        <!-- 修改为 登录/同步 -->
+        <button class="ncm-login-btn" onclick="openNeteaseSync()">登录 / 同步歌单</button>
       </div>
       <div style="font-size:11px;opacity:.6;line-height:1.7;margin-bottom:14px;">
-        复制网易云歌单链接粘贴即可导入全部歌曲到曲库，无需登录。支持 163cn.tv 短链接。
+        无法直接扫码登录，但你可以复制网易云“我喜欢的音乐”链接粘贴进来，即可同步账号里的所有歌曲。
       </div>
       <div class="field-label">歌曲搜索</div>
       <div style="display:flex;gap:8px;margin-bottom:10px">
