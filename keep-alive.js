@@ -121,10 +121,12 @@ const KEEP = (() => {
     try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch (e) {}
   }
 
-  // 首次用户交互时预热：获得自动播放授权，之后切后台才能顺利播放
+  // 首次用户交互时预热：获得自动播放授权，之后切后台才能顺利播放。
+  // 点击瞬间立即把媒体卡片建好，用户一碰页面就能看到。
   function primeAudio() {
     if (!config.keepAlive) return;
     ensureAudioEl();
+    setMediaSession();
     startAudio();
   }
 

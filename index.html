@@ -750,10 +750,17 @@ html:not(.on-home) .watch-active-glow {
     }
   }
 
+  // 首次交互预热：用户一点击页面就启动音频并弹出媒体卡片，拿到自动播放授权
+  function primeKeepAliveAudio() {
+    if (!isKeepEnabled) return;
+    startSilentAudio();
+    document.removeEventListener('touchstart', primeKeepAliveAudio);
+    document.removeEventListener('click', primeKeepAliveAudio);
+  }
+
   function setMediaSession() {
     try {
       if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
-      
       const artwork = [];
       // 默认使用用户头像作为封面
       if (window.S && S.user && S.user.avatar) {
@@ -873,6 +880,9 @@ html:not(.on-home) .watch-active-glow {
       keepStats = { heartbeats: 0, maxSurvival: 0, lastSurvival: 0, disconnectCount: 0, terminationCount: 0, connected: true };
       initWorker();
       requestWakeLock();
+      // 首次触摸或点击时预热音频，拿到自动播放授权，媒体卡片即时出现
+      document.addEventListener('touchstart', primeKeepAliveAudio);
+      document.addEventListener('click', primeKeepAliveAudio);
       if (document.hidden) startSilentAudio();
     },
     stopKeepAlive() {
