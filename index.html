@@ -664,6 +664,7 @@ html:not(.on-home) .watch-active-glow {
   let currentAudioMode = 'none';
   let wakeSentinel = null;
   let lastHiddenAt = 0;
+  let mediaReady = false; // 音频是否真正跑起来、媒体卡片是否可显示
   
   let keepStats = { 
     heartbeats: 0, 
@@ -702,16 +703,38 @@ html:not(.on-home) .watch-active-glow {
       if (keepAudioEl) { keepAudioEl.pause(); keepAudioEl = null; }
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
       currentAudioMode = 'none';
+      mediaReady = false;
     } catch (e) {}
   }
 
   function startSilentAudio() {
+    // 已在播放则直接复用，避免频繁重启造成间隙、也省电
+    if (currentAudioMode === 'media' && keepAudioEl && !keepAudioEl.paused) return;
+    if (currentAudioMode === 'webaudio' && keepAudioSrc) return;
     stopSilentAudio();
-    
+    mediaReady = false;
+
     // 核心判断：如果开启了媒体卡片，或者设置了自定义音频，走媒体元素通道
     const useMediaCard = window.S && S.settings.showMediaCard !== false;
     const hasCustomAudio = window.S && S.settings.customKeepAudio && !S.settings.dontStealAudio;
-    
+
+    // 真正跑起来：更新状态、弹出媒体卡片
+    const audioStarted = () => {
+      mediaReady = true;
+      currentAudioMode = 'media';
+      setMediaSession();
+    };
+    const audioBlocked = () => {
+      // 自动播放被拦截：尝试“静音播放→成功后去静音”绕过，桌面端常有效
+      try {
+        if (!keepAudioEl) return;
+        keepAudioEl.muted = true;
+        const pp = keepAudioEl.play();
+        if (pp && pp.then) pp.then(() => { keepAudioEl.muted = false; audioStarted(); }).catch(() => {});
+        else audioStarted();
+      } catch (e) {}
+    };
+
     if (useMediaCard || hasCustomAudio) {
       try {
         keepAudioEl = new Audio();
@@ -723,9 +746,9 @@ html:not(.on-home) .watch-active-glow {
           keepAudioEl.volume = 0.01; // 极小音量，欺骗系统
         }
         keepAudioEl.loop = true;
-        keepAudioEl.play().catch(()=>{});
-        currentAudioMode = 'media';
-        setMediaSession();
+        const p = keepAudioEl.play();
+        if (p && p.then) p.then(audioStarted).catch(audioBlocked);
+        else audioStarted();
       } catch(e) {}
     } else {
       // 纯静音后台通道（不显示媒体卡片）
@@ -745,17 +768,23 @@ html:not(.on-home) .watch-active-glow {
         src.start();
         keepAudioSrc = src;
         if (keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
+        mediaReady = true;
         currentAudioMode = 'webaudio';
       } catch (e) {}
     }
   }
 
-  // 首次交互预热：用户一点击页面就启动音频并弹出媒体卡片，拿到自动播放授权
+  // 进站即触发：一进页面就尝试启动音频并弹出媒体卡片，不要求用户先“打开一起听/点击”。
+  // 若被浏览器自动播放策略拦截，挂在用户首次触摸/点击/按下时再补启动；
+  // 只有真正跑起来才解绑，避免失败后失去重试机会。
   function primeKeepAliveAudio() {
     if (!isKeepEnabled) return;
     startSilentAudio();
-    document.removeEventListener('touchstart', primeKeepAliveAudio);
-    document.removeEventListener('click', primeKeepAliveAudio);
+    if (mediaReady) {
+      document.removeEventListener('touchstart', primeKeepAliveAudio);
+      document.removeEventListener('click', primeKeepAliveAudio);
+      document.removeEventListener('pointerdown', primeKeepAliveAudio);
+    }
   }
 
   function setMediaSession() {
@@ -880,9 +909,12 @@ html:not(.on-home) .watch-active-glow {
       keepStats = { heartbeats: 0, maxSurvival: 0, lastSurvival: 0, disconnectCount: 0, terminationCount: 0, connected: true };
       initWorker();
       requestWakeLock();
-      // 首次触摸或点击时预热音频，拿到自动播放授权，媒体卡片即时出现
+      // 进站立即触发：不等用户“打开一起听/点击”，直接尝试启动媒体播放器与媒体卡片
+      primeKeepAliveAudio();
+      // 兜底：若自动播放被浏览器拦截，用户首次触摸/点击/按下时再补启动
       document.addEventListener('touchstart', primeKeepAliveAudio);
       document.addEventListener('click', primeKeepAliveAudio);
+      document.addEventListener('pointerdown', primeKeepAliveAudio);
       if (document.hidden) startSilentAudio();
     },
     stopKeepAlive() {
