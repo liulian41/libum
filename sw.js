@@ -1,37 +1,27 @@
 'use strict';
 
 /* ==========================================================================
- * 后台代班 Service Worker
- * --------------------------------------------------------------------------
- * 职责：
- *   1. 主线程切后台前，把未来 5 分钟内的任务用 postMessage 交接过来
- *      message = { type: 'SCHEDULE_TASKS', tasks: [...] }
- *   2. 用 setTimeout + event.waitUntil 把 SW 保活，到点延时触发
- *   3. 触发时先把消息写入 IndexedDB 队列，再弹系统通知
- *   4. Cache-First 缓存，避免切回前台白屏
- *
- * 可靠性说明：
- *   浏览器会对后台 SW 的 setTimeout 做节流，并可能在几十秒后终止 SW，
- *   waitUntil 最长也只能保活约 5 分钟。因此这套“交接 + 定时器”方案
- *   适合未来 1~2 分钟内、最多 5 分钟内的提醒。要更久或更稳定，
- *   请启用 showLibumNotification 里的原生延时通知，或改用推送。
+ * Libum Service Worker (强化缓存秒开版 + 后台代班补发)
  * ========================================================================== */
 
-const DB_NAME      = 'pwa_kv_store';
-const DB_VERSION   = 1;
-const STORE_NAME   = 'kv';
-const STATIC_CACHE = 'pwa-static-v2';
+const DB_NAME        = 'libum_store';
+const DB_VERSION     = 1;
+const STORE_NAME     = 'kv';
+const STATIC_CACHE   = 'libum-static-v6'; // 版本号升级
 
-const FALLBACK_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+const FALLBACK_ICON  = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96">' +
-  '<rect width="96" height="96" rx="20" fill="#5b7cfa"/>' +
+  '<rect width="96" height="96" rx="20" fill="#a58cf0"/>' +
   '<text x="48" y="62" font-size="42" fill="#fff" text-anchor="middle" ' +
-  'font-family="sans-serif" font-weight="bold">✓</text></svg>'
+  'font-family="sans-serif" font-weight="bold">L</text></svg>'
 );
+const NOTIF_ICON     = FALLBACK_ICON;
 
-const HORIZON_MS   = 5 * 60 * 1000;        // 只接收未来 5 分钟内的任务
-const DONE_KEEP_MS = 24 * 3600 * 1000;     // 已完成任务保留 24h，用于去重
-const QUEUE_LIMIT  = 200;
+const HORIZON_MS     = 2 * 3600 * 1000;
+const ARM_WINDOW_MS  = 5 * 60 * 1000;
+const DONE_KEEP_MS   = 24 * 3600 * 1000;
+const TASK_KEEP_MS   = 7  * 24 * 3600 * 1000;
+const QUEUE_LIMIT    = 200;
 
 /* ============================ IndexedDB ================================== */
 
@@ -85,6 +75,10 @@ async function idbSet(key, val) {
   });
 }
 
+/* ============================ 工具函数 =================================== */
+
+const rnd = (a, b) => a + Math.random() * (b - a);
+
 async function loadJSON(key, fallback) {
   const raw = await idbGet(key);
   if (raw == null) return fallback;
@@ -92,96 +86,158 @@ async function loadJSON(key, fallback) {
   try { return JSON.parse(raw); } catch (e) { return fallback; }
 }
 
-async function loadTasks() { return loadJSON('tasks', []); }
-async function saveTasks(tasks) { return idbSet('tasks', tasks); }
-
-async function loadQueue() { return loadJSON('queue', []); }
+async function loadTasks() {
+  const v = await loadJSON('libum_scheduled_tasks', []);
+  return Array.isArray(v) ? v : [];
+}
+async function saveTasks(tasks) { return idbSet('libum_scheduled_tasks', tasks); }
+async function loadQueue() {
+  const v = await loadJSON('libum_queue', []);
+  return Array.isArray(v) ? v : [];
+}
 async function pushQueue(item) {
   const q = await loadQueue();
-  if (q.some(x => x && x.id === item.id)) return true; // 幂等去重
+  // 幂等：相同 id 或 (cid+t+ts) 已存在则跳过
+  if (q.some(x => x && (x.id === item.id || (x.cid === item.cid && x.t === item.t && Math.abs((x.ts||0)-(item.ts||0)) < 2000)))) {
+    return true;
+  }
   q.push(item);
   while (q.length > QUEUE_LIMIT) q.shift();
-  return idbSet('queue', q);
+  return idbSet('libum_queue', q);
+}
+
+/* ============================ 状态回写 =================================== */
+
+async function bumpChatSetting(cid, key, now) {
+  if (!cid) return;
+  const raw = await idbGet('libum_data');
+  if (!raw) return;
+  let data;
+  try { data = (typeof raw === 'string') ? JSON.parse(raw) : raw; } catch (e) { return; }
+  if (!data || !data.state || typeof data.state !== 'object') return;
+
+  if (!data.state.chatSettings || typeof data.state.chatSettings !== 'object') {
+    data.state.chatSettings = {};
+  }
+  let cs = data.state.chatSettings[cid];
+  if (!cs || typeof cs !== 'object') { cs = {}; data.state.chatSettings[cid] = cs; }
+
+  if (key === 'nextAutoMsgTime') {
+    const unit = cs.autoMsgUnit || 'hours';
+    const mul  = unit === 'minutes' ? 60000 : 3600000;
+    const min  = Number(cs.autoMsgMin) || 2;
+    const max  = Math.max(min, Number(cs.autoMsgMax) || 6);
+    cs.nextAutoMsgTime = now + rnd(min * mul, max * mul);
+  } else if (key === 'nextMomentTime') {
+    const min = Number(cs.momentMinHours) || 4;
+    const max = Math.max(min, Number(cs.momentMaxHours) || 12);
+    cs.nextMomentTime = now + rnd(min * 3600000, max * 3600000);
+  } else { return; }
+  data.savedAt = now;
+  await idbSet('libum_data', JSON.stringify(data));
 }
 
 /* ============================ 通知 ======================================= */
 
-// 原生延时通知：不依赖 SW 存活，浏览器到点自动弹出，最可靠
-function supportsTrigger() {
-  try { return !!(self.NotificationTrigger && self.TimestampTrigger); } catch (e) { return false; }
-}
-
-async function showLibumNotification(title, body, tag, data, fireAt) {
+async function showLibumNotification(title, body, tag, data) {
   const opts = {
-    body: body || '你有新消息',
-    icon: FALLBACK_ICON,
-    badge: FALLBACK_ICON,
-    tag: tag || ('pwa-' + Date.now()),
+    body: body || '有新消息',
+    icon: NOTIF_ICON,
+    badge: NOTIF_ICON,
+    tag: tag || ('libum-' + Date.now()),
     renotify: true,
     vibrate: [80, 40, 80],
     data: data || {},
     requireInteraction: true
   };
-  // 传入未来时间且浏览器支持时，用系统原生延时通知
-  if (fireAt && supportsTrigger()) {
-    opts.showTrigger = new self.TimestampTrigger(fireAt);
-  }
   try {
-    await self.registration.showNotification(title || '提醒', opts);
+    await self.registration.showNotification(title || 'Libum', opts);
     return true;
   } catch (e) {
-    // 部分浏览器不支持 showTrigger，去掉后走普通通知
     try {
-      const { showTrigger, ...plain } = opts;
-      await self.registration.showNotification(title || '提醒', plain);
+      opts.icon  = FALLBACK_ICON;
+      opts.badge = FALLBACK_ICON;
+      await self.registration.showNotification(title || 'Libum', opts);
       return true;
-    } catch (e2) { return false; }
+    } catch (e2) {
+      try {
+        await idbSet('libum_notif_fallback', {
+          title: title || 'Libum', body: body || '有新消息',
+          tag: tag || ('libum-' + Date.now()), data: data || {}, ts: Date.now()
+        });
+      } catch (e3) {}
+      return false;
+    }
   }
 }
 
-/* ============================ 任务调度 =================================== */
+/* ============================================================================
+ * 任务调度核心
+ * ========================================================================== */
 
-const timers = new Map(); // taskId -> setTimeout 句柄
-const locks  = new Map(); // taskId -> resolve，用于 waitUntil 保活
-
-function releaseLock(id) {
-  const t = timers.get(id); if (t) { clearTimeout(t); timers.delete(id); }
-  const l = locks.get(id);  if (l) { locks.delete(id); try { l(); } catch (e) {} }
-}
+const __inflightTimers = new Map();
+const __inflightLocks  = new Map();
 
 async function fireTask(task) {
   if (!task || !task.id) return;
-  const tasks = await loadTasks();
-  const cur = tasks.find(t => t.id === task.id);
-  if (!cur || cur.done) { releaseLock(task.id); return; }
+
+  const tasksNow = await loadTasks();
+  const cur = tasksNow.find(t => t.id === task.id);
+  if (!cur || cur.done) {
+    const lock = __inflightLocks.get(task.id);
+    if (lock) { __inflightLocks.delete(task.id); try { lock(); } catch (e) {} }
+    const tm = __inflightTimers.get(task.id);
+    if (tm) { try { clearTimeout(tm); } catch (e) {} __inflightTimers.delete(task.id); }
+    return;
+  }
 
   const now = Date.now();
   const d = task.data || {};
 
-  // 1) 先把消息写进队列，用户打开页面后一定能看到
-  if (d.cid) {
-    await pushQueue({ id: task.id, cid: d.cid, text: task.body || '', ts: now, tag: task.tag || '' });
-  }
-  // 2) 弹系统通知
-  await showLibumNotification(task.title || '提醒', task.body || '你有新消息', task.tag, d);
+  try {
+    /* 关键修复：先把消息写入队列，再发通知。
+     * 这样即使通知点击后立刻关闭页面，消息也已经落盘，
+     * 打开 App 后一定能看到这条消息，不会出现“点进去没有”。 */
+    if (d.type === 'AUTO_MSG' && d.cid) {
+      await pushQueue({
+        id: task.id, cid: d.cid, type: 'AUTO_MSG',
+        t: task.body || '', ts: now, tag: task.tag || ''
+      });
+      await bumpChatSetting(d.cid, 'nextAutoMsgTime', now);
+    }
 
-  // 3) 标记完成，避免重复触发
-  const idx = tasks.findIndex(t => t.id === task.id);
-  if (idx >= 0) { tasks[idx].done = true; tasks[idx].doneAt = now; await saveTasks(tasks); }
-  releaseLock(task.id);
+    await showLibumNotification(
+      task.title || 'Libum', task.body || '有新消息',
+      task.tag || ('libum-' + task.id), d
+    );
+
+    const tasks = await loadTasks();
+    const idx = tasks.findIndex(t => t.id === task.id);
+    if (idx >= 0) {
+      tasks[idx].done = true;
+      tasks[idx].doneAt = now;
+      await saveTasks(tasks);
+    }
+  } catch (e) {
+    console.warn('[SW] fireTask error:', e);
+  } finally {
+    const tm = __inflightTimers.get(task.id);
+    if (tm) { try { clearTimeout(tm); } catch (e) {} __inflightTimers.delete(task.id); }
+    const lock = __inflightLocks.get(task.id);
+    if (lock) { __inflightLocks.delete(task.id); try { lock(); } catch (e) {} }
+  }
 }
 
-// 把单个任务装进 setTimeout，并返回一个只在该任务触发后才 resolve 的 Promise
-function armTask(task) {
+function armOne(task) {
   if (!task || !task.id || task.done) return null;
-  if (timers.has(task.id)) return null;
+  if (__inflightTimers.has(task.id)) return null;
   const delay = task.fireAt - Date.now();
-  if (delay > HORIZON_MS || delay < 0) return null;
+  if (delay > ARM_WINDOW_MS || delay < 0) return null;
 
   return new Promise(resolve => {
-    locks.set(task.id, resolve);
-    const timer = setTimeout(() => { fireTask(task); }, delay);
-    timers.set(task.id, timer);
+    __inflightLocks.set(task.id, resolve);
+    const timer = setTimeout(() => { fireTask(task); }, Math.max(0, delay));
+    __inflightTimers.set(task.id, timer);
   });
 }
 
@@ -190,14 +246,20 @@ async function handleSchedule(incoming) {
   const existing = await loadTasks();
   const map = new Map(existing.map(t => [t.id, t]));
 
-  for (const t of incoming || []) {
+  for (const t of incoming) {
     if (!t || !t.id || !t.fireAt) continue;
-    if (t.fireAt > now + HORIZON_MS) continue; // 只接管未来 5 分钟内
+    if (t.fireAt > now + HORIZON_MS) continue;
     const old = map.get(t.id);
+    if (old && old.fireAt !== t.fireAt) {
+      const tm = __inflightTimers.get(t.id);
+      if (tm) { try { clearTimeout(tm); } catch (e) {} __inflightTimers.delete(t.id); }
+      const lk = __inflightLocks.get(t.id);
+      if (lk) { __inflightLocks.delete(t.id); try { lk(); } catch (e) {} }
+    }
     if (old && old.done && t.fireAt > (old.doneAt || 0)) {
       map.set(t.id, Object.assign({}, t, { done: false, scheduledAt: now }));
     } else if (old && old.done) {
-      continue; // 已触发过，跳过
+      continue;
     } else {
       map.set(t.id, Object.assign({}, t, { done: false, scheduledAt: now }));
     }
@@ -205,110 +267,123 @@ async function handleSchedule(incoming) {
 
   const all = Array.from(map.values()).filter(t => {
     if (t.done) return now - (t.doneAt || t.fireAt) < DONE_KEEP_MS;
-    return true;
+    return now - t.fireAt < TASK_KEEP_MS;
   });
   await saveTasks(all);
 
-  // 关键：waitUntil 保活，直到所有已交接任务触发完毕
-  const pending = [];
-  for (const t of all) { if (t.done) continue; const p = armTask(t); if (p) pending.push(p); }
-  if (pending.length) await Promise.all(pending);
+  const promises = [];
+  for (const t of all) {
+    if (t.done) continue;
+    const p = armOne(t);
+    if (p) promises.push(p);
+  }
+  if (promises.length) await Promise.all(promises);
 }
 
-// SW 被唤醒时补跑：把漏掉的、已到点的任务触发掉
-async function recover() {
+async function pingRecover() {
   const tasks = await loadTasks();
   const now = Date.now();
-  const pending = [];
+  const promises = [];
+
   for (const t of tasks) {
     if (t.done) continue;
-    if (t.fireAt <= now) { fireTask(t); continue; }
-    const p = armTask(t); if (p) pending.push(p);
+    if (t.fireAt <= now) {
+      fireTask(t).catch(() => {});
+      continue;
+    }
+    const p = armOne(t);
+    if (p) promises.push(p);
   }
-  if (pending.length) await Promise.all(pending);
-}
-
-async function cancelTasks(ids) {
-  let tasks = await loadTasks();
-  let changed = false;
-  tasks = tasks.filter(t => {
-    if (!ids.includes(t.id)) return true;
-    if (t.done) return true;
-    releaseLock(t.id); changed = true; return false;
-  });
-  if (changed) await saveTasks(tasks);
+  if (promises.length) await Promise.all(promises);
 }
 
 /* ============================ 事件绑定 =================================== */
 
 self.addEventListener('message', (event) => {
-  const d = event.data || {};
-  if (d.type === 'SCHEDULE_TASKS' && Array.isArray(d.tasks)) {
-    event.waitUntil(handleSchedule(d.tasks));
+  const data = event.data || {};
+  if (data.type === 'SCHEDULE_TASKS' && Array.isArray(data.tasks)) {
+    event.waitUntil(handleSchedule(data.tasks));
     return;
   }
-  if (d.type === 'PING_SW') { event.waitUntil(recover()); return; }
-  if (d.type === 'CANCEL_TASKS' && Array.isArray(d.ids)) { event.waitUntil(cancelTasks(d.ids)); return; }
+  if (data.type === 'PING_SW') {
+    event.waitUntil(pingRecover());
+    return;
+  }
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = (event.notification && event.notification.data) || {};
+
   event.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     if (wins && wins.length) {
       const w = wins[0];
       try { await w.focus(); } catch (e) {}
-      try { w.postMessage({ type: 'OPEN_TARGET', cid: data.cid, msgId: data.msgId }); } catch (e) {}
+      try { w.postMessage({ type: 'OPEN_CHAT', cid: data.cid, msgId: data.msgId }); } catch (e) {}
       return;
     }
-    const url = data.cid ? './index.html?cid=' + encodeURIComponent(data.cid) : './index.html';
+    const url = data.cid
+      ? `./index.html?page=chatRoom&id=${encodeURIComponent(data.cid)}`
+      : './index.html';
     try { await self.clients.openWindow(url); } catch (e) {}
   })());
 });
 
-// 周期性后台同步 / 后台同步：SW 被系统唤醒时补跑任务
 self.addEventListener('periodicsync', (event) => {
-  if (event.tag === 'libum-wake') event.waitUntil(recover());
+  if (event.tag === 'libum-offline-msg') event.waitUntil(pingRecover());
 });
 self.addEventListener('sync', (event) => {
-  if (event.tag === 'libum-wake') event.waitUntil(recover());
+  if (event.tag === 'libum-offline-msg') event.waitUntil(pingRecover());
+});
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; } catch (e) {}
+  event.waitUntil(showLibumNotification(
+    payload.title || 'Libum', payload.body || '有新消息',
+    payload.tag || 'libum-push', payload.data || {}
+  ));
 });
 
 self.addEventListener('install', () => { self.skipWaiting(); });
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     try { await self.clients.claim(); } catch (e) {}
-    try { await recover(); } catch (e) {}
+    try { await pingRecover(); } catch (e) {}
   })());
 });
 
-/* ============================ 缓存优先 =================================== */
-
+/* ============================================================================
+ * 缓存优先策略 (Cache-First) 解决切回前台的白屏
+ * ========================================================================== */
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
-  let url; try { url = new URL(req.url); } catch (e) { return; }
+  let url;
+  try { url = new URL(req.url); } catch (e) { return; }
   if (url.origin !== self.location.origin) return;
 
   event.respondWith((async () => {
     const cache = await caches.open(STATIC_CACHE);
-    const isHtml = /\.html$/i.test(url.pathname) || url.pathname.endsWith('/');
+    
+    const isHtml = /\.(html)$/i.test(url.pathname) || url.pathname.endsWith('/');
+    
     if (isHtml) {
-      // HTML 用网络优先：发布新页面后立刻生效，只有断网时才回退旧缓存
-      try {
-        const res = await fetch(req);
-        if (res && res.ok) { try { cache.put(req, res.clone()); } catch (e) {} }
-        return res;
-      } catch (e) {
-        const cached = await cache.match(req);
-        if (cached) return cached;
-        throw e;
+      const cached = await cache.match(req);
+      if (cached) {
+        fetch(req).then(res => {
+          if (res && res.ok) cache.put(req, res);
+        }).catch(()=>{});
+        return cached;
       }
     }
+
     try {
       const res = await fetch(req);
-      if (res && res.ok) { try { cache.put(req, res.clone()); } catch (e) {} }
+      if (res && res.ok) {
+        try { cache.put(req, res.clone()); } catch (e) {}
+      }
       return res;
     } catch (e) {
       const cached = await cache.match(req);

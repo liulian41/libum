@@ -664,7 +664,6 @@ html:not(.on-home) .watch-active-glow {
   let currentAudioMode = 'none';
   let wakeSentinel = null;
   let lastHiddenAt = 0;
-  let mediaReady = false; // 音频是否真正跑起来、媒体卡片是否可显示
   
   let keepStats = { 
     heartbeats: 0, 
@@ -678,7 +677,7 @@ html:not(.on-home) .watch-active-glow {
   const SAFE_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="20" fill="#a58cf0"/><text x="48" y="62" font-size="42" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="bold">L</text></svg>');
   
   // 一段极低音量的白噪音，用于激活系统媒体面板
-  const MINIMAL_AUDIO_B64 = "data:audio/wav;base64,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";
+  const MINIMAL_AUDIO_B64 = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 
   function initWorker() {
     if (kaWorker) return;
@@ -696,27 +695,6 @@ html:not(.on-home) .watch-active-glow {
     } catch (err) {}
   }
 
-  // 保活运行指示：一个小圆点提示音频已真正播放，方便确认状态
-  let keepBadgeEl = null;
-  function showKeepBadge() {
-    try {
-      if (keepBadgeEl) return;
-      keepBadgeEl = document.createElement('div');
-      keepBadgeEl.id = 'keepAliveBadge';
-      keepBadgeEl.textContent = '保活运行中';
-      Object.assign(keepBadgeEl.style, {
-        position: 'fixed', left: '50%', bottom: '12px', transform: 'translateX(-50%)',
-        zIndex: '99999', background: 'rgba(0,0,0,0.45)', color: '#fff',
-        fontSize: '12px', padding: '5px 12px', borderRadius: '20px',
-        pointerEvents: 'none', fontFamily: 'sans-serif'
-      });
-      (document.body || document.documentElement).appendChild(keepBadgeEl);
-    } catch (e) {}
-  }
-  function hideKeepBadge() {
-    try { if (keepBadgeEl) { keepBadgeEl.remove(); keepBadgeEl = null; } } catch (e) {}
-  }
-
   function stopSilentAudio() {
     try {
       if (keepAudioSrc) { try { keepAudioSrc.stop(); } catch(e){} keepAudioSrc = null; }
@@ -724,40 +702,16 @@ html:not(.on-home) .watch-active-glow {
       if (keepAudioEl) { keepAudioEl.pause(); keepAudioEl = null; }
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
       currentAudioMode = 'none';
-      mediaReady = false;
-      hideKeepBadge();
     } catch (e) {}
   }
 
   function startSilentAudio() {
-    // 已在播放则直接复用，避免频繁重启造成间隙、也省电
-    if (currentAudioMode === 'media' && keepAudioEl && !keepAudioEl.paused) return;
-    if (currentAudioMode === 'webaudio' && keepAudioSrc) return;
     stopSilentAudio();
-    mediaReady = false;
-
+    
     // 核心判断：如果开启了媒体卡片，或者设置了自定义音频，走媒体元素通道
     const useMediaCard = window.S && S.settings.showMediaCard !== false;
     const hasCustomAudio = window.S && S.settings.customKeepAudio && !S.settings.dontStealAudio;
-
-    // 真正跑起来：更新状态、弹出媒体卡片
-    const audioStarted = () => {
-      mediaReady = true;
-      currentAudioMode = 'media';
-      setMediaSession();
-      showKeepBadge();
-    };
-    const audioBlocked = () => {
-      // 自动播放被拦截：尝试“静音播放→成功后去静音”绕过，桌面端常有效
-      try {
-        if (!keepAudioEl) return;
-        keepAudioEl.muted = true;
-        const pp = keepAudioEl.play();
-        if (pp && pp.then) pp.then(() => { keepAudioEl.muted = false; audioStarted(); }).catch(() => {});
-        else audioStarted();
-      } catch (e) {}
-    };
-
+    
     if (useMediaCard || hasCustomAudio) {
       try {
         keepAudioEl = new Audio();
@@ -766,12 +720,12 @@ html:not(.on-home) .watch-active-glow {
           keepAudioEl.volume = 1;
         } else {
           keepAudioEl.src = MINIMAL_AUDIO_B64;
-          keepAudioEl.volume = 0.4; // 轻柔但可闻，浏览器才判定在播放并弹卡片
+          keepAudioEl.volume = 0.01; // 极小音量，欺骗系统
         }
         keepAudioEl.loop = true;
-        const p = keepAudioEl.play();
-        if (p && p.then) p.then(audioStarted).catch(audioBlocked);
-        else audioStarted();
+        keepAudioEl.play().catch(()=>{});
+        currentAudioMode = 'media';
+        setMediaSession();
       } catch(e) {}
     } else {
       // 纯静音后台通道（不显示媒体卡片）
@@ -791,24 +745,17 @@ html:not(.on-home) .watch-active-glow {
         src.start();
         keepAudioSrc = src;
         if (keepAudioCtx.state === 'suspended') keepAudioCtx.resume().catch(()=>{});
-        mediaReady = true;
         currentAudioMode = 'webaudio';
-        showKeepBadge();
       } catch (e) {}
     }
   }
 
-  // 进站即触发：一进页面就尝试启动音频并弹出媒体卡片，不要求用户先“打开一起听/点击”。
-  // 若被浏览器自动播放策略拦截，挂在用户首次触摸/点击/按下时再补启动；
-  // 只有真正跑起来才解绑，避免失败后失去重试机会。
+  // 首次交互预热：用户一点击页面就启动音频并弹出媒体卡片，拿到自动播放授权
   function primeKeepAliveAudio() {
     if (!isKeepEnabled) return;
     startSilentAudio();
-    if (mediaReady) {
-      document.removeEventListener('touchstart', primeKeepAliveAudio);
-      document.removeEventListener('click', primeKeepAliveAudio);
-      document.removeEventListener('pointerdown', primeKeepAliveAudio);
-    }
+    document.removeEventListener('touchstart', primeKeepAliveAudio);
+    document.removeEventListener('click', primeKeepAliveAudio);
   }
 
   function setMediaSession() {
@@ -857,6 +804,7 @@ html:not(.on-home) .watch-active-glow {
       try { if (typeof save === 'function') save(true); } catch(e) {}
       if (isKeepEnabled) startSilentAudio();
       document.documentElement.classList.add('app-hidden');
+      try { if (typeof handoffToSW === 'function') handoffToSW(); } catch(e) {}
     } else {
       document.documentElement.classList.remove('app-hidden');
       if (!isKeepEnabled) return;
@@ -933,12 +881,9 @@ html:not(.on-home) .watch-active-glow {
       keepStats = { heartbeats: 0, maxSurvival: 0, lastSurvival: 0, disconnectCount: 0, terminationCount: 0, connected: true };
       initWorker();
       requestWakeLock();
-      // 进站立即触发：不等用户“打开一起听/点击”，直接尝试启动媒体播放器与媒体卡片
-      primeKeepAliveAudio();
-      // 兜底：若自动播放被浏览器拦截，用户首次触摸/点击/按下时再补启动
+      // 首次触摸或点击时预热音频，拿到自动播放授权，媒体卡片即时出现
       document.addEventListener('touchstart', primeKeepAliveAudio);
       document.addEventListener('click', primeKeepAliveAudio);
-      document.addEventListener('pointerdown', primeKeepAliveAudio);
       if (document.hidden) startSilentAudio();
     },
     stopKeepAlive() {
